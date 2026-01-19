@@ -1,0 +1,512 @@
+package api
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"finance/database"
+	"finance/models"
+
+	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// AdminHandler 后台管理处理器
+type AdminHandler struct{}
+
+// NewAdminHandler 创建后台管理处理器
+func NewAdminHandler() *AdminHandler {
+	return &AdminHandler{}
+}
+
+// AdminLoginRequest 管理员登录请求
+type AdminLoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// AdminLogin 管理员登录（使用 session/cookie 方式）
+func (h *AdminHandler) AdminLogin(c *gin.Context) {
+	var req AdminLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误"})
+		return
+	}
+
+	// 查找用户
+	var user models.User
+	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户名或密码错误"})
+		return
+	}
+
+	// 验证密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户名或密码错误"})
+		return
+	}
+
+	// 设置 Cookie
+	c.SetCookie("admin_user_id", fmt.Sprintf("%d", user.ID), 86400, "/", "", false, true)
+	c.SetCookie("admin_username", user.Username, 86400, "/", "", false, false)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "登录成功",
+		"data": gin.H{
+			"user_id":  user.ID,
+			"username": user.Username,
+		},
+	})
+}
+
+// AdminLogout 管理员退出登录
+func (h *AdminHandler) AdminLogout(c *gin.Context) {
+	c.SetCookie("admin_user_id", "", -1, "/", "", false, true)
+	c.SetCookie("admin_username", "", -1, "/", "", false, false)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已退出登录"})
+}
+
+// GetAllExpenses 获取所有用户的消费记录（管理员）
+func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
+	page := 1
+	pageSize := 20
+	if p := c.Query("page"); p != "" {
+		fmt.Sscanf(p, "%d", &page)
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		fmt.Sscanf(ps, "%d", &pageSize)
+	}
+
+	startTime := c.Query("start_time")
+	endTime := c.Query("end_time")
+	category := c.Query("category")
+	username := c.Query("username")
+
+	query := database.DB.Model(&models.Expense{}).
+		Select("expenses.*, users.username").
+		Joins("LEFT JOIN users ON expenses.user_id = users.id")
+
+	// 筛选条件
+	if startTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", startTime, time.Local); err == nil {
+			query = query.Where("expenses.expense_time >= ?", t)
+		}
+	}
+	if endTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", endTime, time.Local); err == nil {
+			t = t.Add(24*time.Hour - time.Second)
+			query = query.Where("expenses.expense_time <= ?", t)
+		}
+	}
+	if category != "" {
+		query = query.Where("expenses.category = ?", category)
+	}
+	if username != "" {
+		query = query.Where("users.username LIKE ?", "%"+username+"%")
+	}
+
+	// 计算总数
+	var total int64
+	query.Count(&total)
+
+	// 查询数据
+	type ExpenseWithUser struct {
+		models.Expense
+		Username string `json:"username"`
+	}
+
+	var expenses []ExpenseWithUser
+	offset := (page - 1) * pageSize
+	query.Order("expenses.expense_time DESC").Offset(offset).Limit(pageSize).Scan(&expenses)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+			"list":      expenses,
+		},
+	})
+}
+
+// GetAllUsers 获取所有用户列表
+func (h *AdminHandler) GetAllUsers(c *gin.Context) {
+	var users []models.User
+	database.DB.Find(&users)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    users,
+	})
+}
+
+// GetStatistics 获取统计数据
+func (h *AdminHandler) GetStatistics(c *gin.Context) {
+	startTime := c.Query("start_time")
+	endTime := c.Query("end_time")
+
+	query := database.DB.Model(&models.Expense{})
+	incomeQuery := database.DB.Model(&models.Income{})
+
+	if startTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", startTime, time.Local); err == nil {
+			query = query.Where("expense_time >= ?", t)
+			incomeQuery = incomeQuery.Where("income_time >= ?", t)
+		}
+	}
+	if endTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", endTime, time.Local); err == nil {
+			t = t.Add(24*time.Hour - time.Second)
+			query = query.Where("expense_time <= ?", t)
+			incomeQuery = incomeQuery.Where("income_time <= ?", t)
+		}
+	}
+
+	// 总金额和总记录数
+	var totalAmount float64
+	var totalCount int64
+	query.Select("COALESCE(SUM(amount), 0)").Scan(&totalAmount)
+	query.Count(&totalCount)
+
+	// 收入总金额和总记录数
+	var totalIncome float64
+	var incomeCount int64
+	incomeQuery.Select("COALESCE(SUM(amount), 0)").Scan(&totalIncome)
+	incomeQuery.Count(&incomeCount)
+
+	// 按类别统计
+	type CategoryStat struct {
+		Category string  `json:"category"`
+		Total    float64 `json:"total"`
+		Count    int64   `json:"count"`
+	}
+	var categoryStats []CategoryStat
+	database.DB.Model(&models.Expense{}).
+		Select("category, SUM(amount) as total, COUNT(*) as count").
+		Group("category").
+		Order("total DESC").
+		Scan(&categoryStats)
+
+	// 用户数量
+	var userCount int64
+	database.DB.Model(&models.User{}).Count(&userCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"total_amount":   totalAmount,
+			"total_count":    totalCount,
+			"total_income":   totalIncome,
+			"income_count":   incomeCount,
+			"user_count":     userCount,
+			"category_stats": categoryStats,
+		},
+	})
+}
+
+// AdminCreateExpenseRequest 管理员创建消费记录请求
+type AdminCreateExpenseRequest struct {
+	UserID      uint    `json:"user_id" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Category    string  `json:"category" binding:"required"`
+	Description string  `json:"description"`
+	ExpenseTime string  `json:"expense_time" binding:"required"` // 格式: 2006-01-02 15:04:05
+}
+
+// CreateExpense 管理员创建消费记录
+func (h *AdminHandler) CreateExpense(c *gin.Context) {
+	var req AdminCreateExpenseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	// 验证用户是否存在
+	var user models.User
+	if err := database.DB.First(&user, req.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	// 解析时间
+	expenseTime, err := time.ParseInLocation("2006-01-02 15:04:05", req.ExpenseTime, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "时间格式错误，应为: 2006-01-02 15:04:05"})
+		return
+	}
+
+	// 校验类别是否存在（来源于数据库）
+	req.Category = strings.TrimSpace(req.Category)
+	if req.Category == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "类别不能为空"})
+		return
+	}
+	var cat models.ExpenseCategory
+	if err := database.DB.Where("name = ?", req.Category).First(&cat).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的消费类别，请先在“消费类别”中维护"})
+		return
+	}
+
+	// 创建消费记录
+	expense := models.Expense{
+		UserID:      req.UserID,
+		Amount:      req.Amount,
+		Category:    req.Category,
+		Description: req.Description,
+		ExpenseTime: expenseTime,
+	}
+
+	if err := database.DB.Create(&expense).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "创建成功",
+		"data":    expense,
+	})
+}
+
+// AdminUpdateExpenseRequest 管理员更新消费记录请求
+type AdminUpdateExpenseRequest struct {
+	Amount      float64 `json:"amount" binding:"omitempty,gt=0"`
+	Category    string  `json:"category"`
+	Description string  `json:"description"`
+	ExpenseTime string  `json:"expense_time"` // 格式: 2006-01-02 15:04:05
+}
+
+// UpdateExpense 管理员更新消费记录
+func (h *AdminHandler) UpdateExpense(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
+		return
+	}
+
+	var expense models.Expense
+	if err := database.DB.First(&expense, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "记录不存在"})
+		return
+	}
+
+	var req AdminUpdateExpenseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	// 更新字段
+	updates := make(map[string]interface{})
+	if req.Amount > 0 {
+		updates["amount"] = req.Amount
+	}
+	if req.Category != "" {
+		req.Category = strings.TrimSpace(req.Category)
+		if req.Category == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "类别不能为空"})
+			return
+		}
+		var cat models.ExpenseCategory
+		if err := database.DB.Where("name = ?", req.Category).First(&cat).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的消费类别，请先在“消费类别”中维护"})
+			return
+		}
+		updates["category"] = req.Category
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.ExpenseTime != "" {
+		expenseTime, err := time.ParseInLocation("2006-01-02 15:04:05", req.ExpenseTime, time.Local)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "时间格式错误，应为: 2006-01-02 15:04:05"})
+			return
+		}
+		updates["expense_time"] = expenseTime
+	}
+
+	if err := database.DB.Model(&expense).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		return
+	}
+
+	// 重新获取更新后的记录
+	database.DB.First(&expense, expense.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "更新成功",
+		"data":    expense,
+	})
+}
+
+// DeleteExpense 管理员删除消费记录
+func (h *AdminHandler) DeleteExpense(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
+		return
+	}
+
+	var expense models.Expense
+	if err := database.DB.First(&expense, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "记录不存在"})
+		return
+	}
+
+	if err := database.DB.Delete(&expense).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "删除成功",
+	})
+}
+
+// GetCategories 已废弃：路由已切到 CategoryHandler.List
+
+// ExportExcel 导出 Excel
+func (h *AdminHandler) ExportExcel(c *gin.Context) {
+	startTime := c.Query("start_time")
+	endTime := c.Query("end_time")
+
+	if startTime == "" || endTime == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请提供开始时间和结束时间"})
+		return
+	}
+
+	start, err := time.ParseInLocation("2006-01-02", startTime, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "开始时间格式错误"})
+		return
+	}
+
+	end, err := time.ParseInLocation("2006-01-02", endTime, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "结束时间格式错误"})
+		return
+	}
+	end = end.Add(24*time.Hour - time.Second)
+
+	// 查询数据
+	type ExpenseWithUser struct {
+		models.Expense
+		Username string
+	}
+
+	var expenses []ExpenseWithUser
+	database.DB.Model(&models.Expense{}).
+		Select("expenses.*, users.username").
+		Joins("LEFT JOIN users ON expenses.user_id = users.id").
+		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", start, end).
+		Order("expenses.expense_time DESC").
+		Scan(&expenses)
+
+	// 创建 Excel 文件
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "消费记录"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// 设置表头样式
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true, Size: 12, Color: "FFFFFF"},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"4F81BD"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	// 数据样式
+	dataStyle, _ := f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	// 设置列宽
+	f.SetColWidth(sheetName, "A", "A", 10)
+	f.SetColWidth(sheetName, "B", "B", 15)
+	f.SetColWidth(sheetName, "C", "C", 12)
+	f.SetColWidth(sheetName, "D", "D", 12)
+	f.SetColWidth(sheetName, "E", "E", 30)
+	f.SetColWidth(sheetName, "F", "F", 20)
+	f.SetColWidth(sheetName, "G", "G", 20)
+
+	// 写入表头
+	headers := []string{"ID", "用户名", "金额", "类别", "描述", "消费时间", "创建时间"}
+	for i, header := range headers {
+		cell := fmt.Sprintf("%c1", 'A'+i)
+		f.SetCellValue(sheetName, cell, header)
+		f.SetCellStyle(sheetName, cell, cell, headerStyle)
+	}
+
+	// 写入数据
+	var totalAmount float64
+	for i, expense := range expenses {
+		row := i + 2
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), expense.ID)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), expense.Username)
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), expense.Amount)
+		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), expense.Category)
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), expense.Description)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), expense.ExpenseTime.Format("2006-01-02 15:04:05"))
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), expense.CreatedAt.Format("2006-01-02 15:04:05"))
+
+		// 设置数据样式
+		f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("G%d", row), dataStyle)
+		totalAmount += expense.Amount
+	}
+
+	// 添加汇总行
+	summaryRow := len(expenses) + 2
+	summaryStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true, Size: 11},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"FFC000"}, Pattern: 1},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Border: []excelize.Border{
+			{Type: "left", Color: "000000", Style: 1},
+			{Type: "top", Color: "000000", Style: 1},
+			{Type: "bottom", Color: "000000", Style: 1},
+			{Type: "right", Color: "000000", Style: 1},
+		},
+	})
+
+	f.SetCellValue(sheetName, fmt.Sprintf("A%d", summaryRow), "合计")
+	f.MergeCell(sheetName, fmt.Sprintf("A%d", summaryRow), fmt.Sprintf("B%d", summaryRow))
+	f.SetCellValue(sheetName, fmt.Sprintf("C%d", summaryRow), totalAmount)
+	f.SetCellValue(sheetName, fmt.Sprintf("D%d", summaryRow), fmt.Sprintf("共 %d 条记录", len(expenses)))
+	f.MergeCell(sheetName, fmt.Sprintf("D%d", summaryRow), fmt.Sprintf("G%d", summaryRow))
+	f.SetCellStyle(sheetName, fmt.Sprintf("A%d", summaryRow), fmt.Sprintf("G%d", summaryRow), summaryStyle)
+
+	// 设置响应头
+	filename := fmt.Sprintf("消费记录_%s_%s.xlsx", startTime, endTime)
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", filename))
+
+	// 写入响应
+	if err := f.Write(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成 Excel 失败"})
+		return
+	}
+}
+

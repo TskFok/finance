@@ -1,0 +1,1126 @@
+basePath: /
+definitions:
+  api.AppRequestPasswordResetRequest:
+    properties:
+      email:
+        example: test@example.com
+        type: string
+    required:
+    - email
+    type: object
+  api.AppResetPasswordRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: test@example.com
+        type: string
+      new_password:
+        example: newpassword123
+        minLength: 6
+        type: string
+    required:
+    - code
+    - email
+    - new_password
+    type: object
+  api.AppVerifyResetCodeRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: test@example.com
+        type: string
+    required:
+    - code
+    - email
+    type: object
+  api.ChangePasswordRequest:
+    properties:
+      new_password:
+        example: newpassword123
+        maxLength: 50
+        minLength: 6
+        type: string
+      old_password:
+        example: oldpassword123
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  api.CreateExpenseRequest:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      category:
+        example: 餐饮
+        type: string
+      description:
+        example: 午餐
+        type: string
+      expense_time:
+        example: "2024-01-15 12:30:00"
+        type: string
+    required:
+    - amount
+    - category
+    - expense_time
+    type: object
+  api.CreateIncomeRequest:
+    properties:
+      amount:
+        example: 5000
+        type: number
+      income_time:
+        example: "2024-01-15 09:00:00"
+        type: string
+      type:
+        example: 工资
+        type: string
+    required:
+    - amount
+    - income_time
+    - type
+    type: object
+  api.LoginRequest:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: testuser
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  api.LoginResponse:
+    properties:
+      token:
+        type: string
+      user_info:
+        $ref: '#/definitions/models.User'
+    type: object
+  api.PageResponse:
+    properties:
+      list: {}
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  api.RegisterRequest:
+    properties:
+      email:
+        example: test@example.com
+        type: string
+      password:
+        example: password123
+        maxLength: 50
+        minLength: 6
+        type: string
+      username:
+        example: testuser
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  api.RegisterWithVerificationRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: test@example.com
+        type: string
+      password:
+        example: password123
+        maxLength: 50
+        minLength: 6
+        type: string
+      username:
+        example: testuser
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - code
+    - email
+    - password
+    - username
+    type: object
+  api.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+  api.SendVerificationCodeRequest:
+    properties:
+      email:
+        example: test@example.com
+        type: string
+      type:
+        description: 'register: 注册, bind: 绑定邮箱'
+        enum:
+        - register
+        - bind
+        example: register
+        type: string
+    required:
+    - email
+    - type
+    type: object
+  api.UpdateExpenseRequest:
+    properties:
+      amount:
+        example: 99.99
+        type: number
+      category:
+        example: 餐饮
+        type: string
+      description:
+        example: 午餐
+        type: string
+      expense_time:
+        example: "2024-01-15 12:30:00"
+        type: string
+    type: object
+  api.UpdateIncomeRequest:
+    properties:
+      amount:
+        type: number
+      income_time:
+        type: string
+      type:
+        type: string
+    type: object
+  api.VerifyEmailCodeRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: test@example.com
+        type: string
+      type:
+        enum:
+        - register
+        - bind
+        example: register
+        type: string
+    required:
+    - code
+    - email
+    - type
+    type: object
+  models.Expense:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      expense_time:
+        type: string
+      id:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.Income:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: integer
+      income_time:
+        type: string
+      type:
+        description: 收入类型
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 一个简单的记账系统 API，支持用户注册、登录、消费记录管理和数据导出功能
+  title: 记账系统 API
+  version: "1.0"
+paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录获取 JWT token
+      parameters:
+      - description: 登录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.LoginResponse'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 用户名或密码错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 用户登录
+      tags:
+      - 认证
+  /api/v1/auth/password:
+    put:
+      consumes:
+      - application/json
+      description: 修改当前用户密码
+      parameters:
+      - description: 密码信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 原密码错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改密码
+      tags:
+      - 认证
+  /api/v1/auth/password/request-reset:
+    post:
+      consumes:
+      - application/json
+      description: 通过邮箱发送密码重置验证码
+      parameters:
+      - description: 密码重置请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AppRequestPasswordResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 验证码已发送
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "429":
+          description: 请求过于频繁
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: App端请求密码重置
+      tags:
+      - 认证
+  /api/v1/auth/password/reset:
+    post:
+      consumes:
+      - application/json
+      description: 使用验证码重置密码
+      parameters:
+      - description: 重置密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AppResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 密码重置成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 验证码错误或已过期
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: App端重置密码
+      tags:
+      - 认证
+  /api/v1/auth/password/verify-code:
+    post:
+      consumes:
+      - application/json
+      description: 验证密码重置验证码是否正确
+      parameters:
+      - description: 验证请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AppVerifyResetCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 验证成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 验证码错误或已过期
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: App端验证重置验证码
+      tags:
+      - 认证
+  /api/v1/auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 创建新用户账号
+      parameters:
+      - description: 注册信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 用户注册
+      tags:
+      - 认证
+  /api/v1/auth/register-verified:
+    post:
+      consumes:
+      - application/json
+      description: 需要先发送验证码，验证通过后创建用户账号
+      parameters:
+      - description: 注册信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RegisterWithVerificationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.User'
+              type: object
+        "400":
+          description: 请求参数错误或验证码错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 带邮箱验证的用户注册
+      tags:
+      - 认证
+  /api/v1/auth/send-code:
+    post:
+      consumes:
+      - application/json
+      description: 发送邮箱验证码用于注册或绑定邮箱
+      parameters:
+      - description: 验证码请求信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SendVerificationCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 发送成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 发送邮箱验证码
+      tags:
+      - 认证
+  /api/v1/auth/verify-code:
+    post:
+      consumes:
+      - application/json
+      description: 验证邮箱验证码是否正确
+      parameters:
+      - description: 验证请求信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.VerifyEmailCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 验证成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 验证码错误或已过期
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 验证邮箱验证码
+      tags:
+      - 认证
+  /api/v1/categories:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有可用的消费类别
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: 获取消费类别列表
+      tags:
+      - 消费记录
+  /api/v1/expenses:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户的消费记录列表，支持分页和筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 类别筛选
+        in: query
+        name: category
+        type: string
+      - description: 开始时间 (2024-01-01)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (2024-12-31)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/api.PageResponse'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/models.Expense'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取消费记录列表
+      tags:
+      - 消费记录
+    post:
+      consumes:
+      - application/json
+      description: 创建一条新的消费记录
+      parameters:
+      - description: 消费记录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Expense'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建消费记录
+      tags:
+      - 消费记录
+  /api/v1/expenses/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定的消费记录
+      parameters:
+      - description: 消费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除消费记录
+      tags:
+      - 消费记录
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取消费记录详情
+      parameters:
+      - description: 消费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Expense'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取单条消费记录
+      tags:
+      - 消费记录
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的消费记录
+      parameters:
+      - description: 消费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 消费记录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Expense'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新消费记录
+      tags:
+      - 消费记录
+  /api/v1/expenses/statistics:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的消费统计
+      parameters:
+      - description: 开始时间 (2024-01-01)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (2024-12-31)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取消费统计
+      tags:
+      - 消费记录
+  /api/v1/export/csv:
+    get:
+      consumes:
+      - application/json
+      description: 根据时间范围导出消费记录为 CSV 文件
+      parameters:
+      - description: 开始时间 (2024-01-01)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: 结束时间 (2024-12-31)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV 文件
+          schema:
+            type: file
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出消费记录
+      tags:
+      - 导出
+  /api/v1/export/json:
+    get:
+      consumes:
+      - application/json
+      description: 根据时间范围导出消费记录为 JSON 格式
+      parameters:
+      - description: 开始时间 (2024-01-01)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: 结束时间 (2024-12-31)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 导出成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Expense'
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出消费记录为 JSON
+      tags:
+      - 导出
+  /api/v1/incomes:
+    get:
+      description: 获取当前用户的收入列表，支持分页与筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 收入类型筛选
+        in: query
+        name: type
+        type: string
+      - description: 开始时间 (2024-01-01)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (2024-12-31)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/api.PageResponse'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/models.Income'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取收入列表
+      tags:
+      - 收入
+    post:
+      consumes:
+      - application/json
+      description: 创建一条新的收入记录
+      parameters:
+      - description: 收入信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateIncomeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Income'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建收入
+      tags:
+      - 收入
+  /api/v1/incomes/{id}:
+    delete:
+      description: 删除指定的收入记录
+      parameters:
+      - description: 收入ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除收入
+      tags:
+      - 收入
+    get:
+      description: 根据ID获取收入详情
+      parameters:
+      - description: 收入ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Income'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取单条收入
+      tags:
+      - 收入
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的收入记录
+      parameters:
+      - description: 收入ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 收入信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateIncomeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Income'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新收入
+      tags:
+      - 收入
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,31 @@
+# 记账系统默认配置（嵌入到二进制文件中）
+
+# 服务器配置
+server:
+  port: ":8811"
+  mode: "release"
+  base_url: "http://127.0.0.1:8811"
+
+# 数据库配置
+database:
+  host: "127.0.0.1"
+  port: "3306"
+  username: "root"
+  password: ""
+  dbname: "finance"
+  charset: "utf8mb4"
+
+# JWT配置
+jwt:
+  secret: "finance-xxx"
+  expire_hours: 24
+
+# 邮件配置
+email:
+  enabled: true
+  host: "smtp.qq.com"
+  port: 465
+  username: "email@qq.com"
+  password: "password"
+  from: "记账系统"
+

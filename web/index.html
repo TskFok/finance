@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>记账系统 - 后台管理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #3b82f6;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+            --shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg-main); color: var(--text-primary); min-height: 100vh; line-height: 1.6; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); position: relative; overflow: hidden; }
+        .login-container::before { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%); top: -200px; right: -200px; }
+        .login-container::after { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%); bottom: -100px; left: -100px; }
+        .login-box { background: var(--bg-card); padding: 48px; border-radius: 24px; box-shadow: var(--shadow); width: 100%; max-width: 420px; position: relative; z-index: 1; border: 1px solid var(--border); }
+        .login-box h1 { text-align: center; margin-bottom: 8px; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary-light), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .login-box p { text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 14px; }
+        .form-group input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 15px; background: var(--bg-input); color: var(--text-primary); transition: all 0.3s ease; }
+        .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); }
+        .btn { padding: 14px 24px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; width: 100%; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(37, 99, 235, 0.35); }
+        .btn-success { background: linear-gradient(135deg, var(--success), #059669); color: white; }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35); }
+        .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--border); }
+        .btn-warning { background: linear-gradient(135deg, var(--warning), #d97706); color: white; }
+        .btn-danger { background: linear-gradient(135deg, var(--danger), #dc2626); color: white; }
+        .btn-sm { padding: 8px 16px; font-size: 13px; }
+        .link-btn { background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 14px; text-decoration: underline; margin-top: 16px; display: block; text-align: center; }
+        .link-btn:hover { color: var(--primary); }
+        .app-container { display: none; min-height: 100vh; }
+        .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: var(--bg-card); border-right: 1px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; }
+        .logo { display: flex; align-items: center; gap: 12px; padding: 0 12px 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+        .logo-icon { width: 42px; height: 42px; background: linear-gradient(135deg, var(--primary), var(--success)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .logo-text { font-size: 18px; font-weight: 700; }
+        .nav-menu { flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; color: var(--text-secondary); margin-bottom: 4px; }
+        .nav-item:hover { background: var(--bg-input); color: var(--text-primary); }
+        .nav-item.active { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; }
+        .nav-item svg { width: 20px; height: 20px; }
+        .user-info { padding: 16px; background: var(--bg-input); border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, var(--warning), var(--danger)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+        .user-details { flex: 1; }
+        .user-name { font-weight: 600; font-size: 14px; }
+        .user-role { font-size: 12px; color: var(--text-secondary); }
+        .logout-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s ease; }
+        .logout-btn:hover { background: var(--danger); color: white; }
+        .main-content { margin-left: 260px; padding: 32px; min-height: 100vh; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        .page-title { font-size: 28px; font-weight: 700; }
+        .page-subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 32px; }
+        .stat-card { background: var(--bg-card); border-radius: 16px; padding: 24px; border: 1px solid var(--border); transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 24px; }
+        .stat-icon.blue { background: rgba(37, 99, 235, 0.15); color: var(--primary-light); }
+        .stat-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .stat-icon.orange { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .stat-icon.red { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .stat-value { font-size: 32px; font-weight: 700; margin-bottom: 4px; }
+        .stat-label { color: var(--text-secondary); font-size: 14px; }
+        .filter-bar { background: var(--bg-card); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border); }
+        .filter-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-item { flex: 1; min-width: 180px; }
+        .filter-item label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .filter-item input, .filter-item select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: all 0.2s ease; }
+        .filter-item input:focus, .filter-item select:focus { outline: none; border-color: var(--primary); }
+        .filter-actions { display: flex; gap: 12px; }
+        .data-table-container { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { background: var(--bg-input); padding: 16px 20px; text-align: left; font-weight: 600; font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .data-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:hover td { background: rgba(37, 99, 235, 0.05); }
+        .category-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .category-tag.餐饮 { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .category-tag.交通 { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .category-tag.购物 { background: rgba(168, 85, 247, 0.15); color: #a78bfa; }
+        .category-tag.娱乐 { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+        .category-tag.医疗 { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .category-tag.教育 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .category-tag.住房 { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
+        .category-tag.其他 { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
+        .amount { font-weight: 600; color: var(--danger); }
+        .pagination { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-top: 1px solid var(--border); }
+        .pagination-info { color: var(--text-secondary); font-size: 14px; }
+        .pagination-buttons { display: flex; gap: 8px; }
+        .page-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; font-size: 14px; }
+        .page-btn:hover:not(:disabled) { background: var(--primary); border-color: var(--primary); }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .page-btn.active { background: var(--primary); border-color: var(--primary); }
+        .page-content { display: none; }
+        .page-content.active { display: block; }
+        .toast { position: fixed; top: 24px; right: 24px; padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; animation: slideIn 0.3s ease; box-shadow: var(--shadow); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: var(--warning); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--bg-card); border-radius: 16px; padding: 32px; max-width: 450px; width: 90%; border: 1px solid var(--border); }
+        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .modal-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .modal-actions .btn { flex: 1; }
+        .action-btns { display: flex; gap: 8px; }
+        .email-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--success); color: white; margin-left: 8px; }
+        .email-badge.disabled { background: var(--secondary); }
+        .chat-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+        .chat-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .chat-history-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .chat-history-list { max-height: 520px; overflow: auto; padding: 8px; }
+        .chat-history-item { padding: 12px 12px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; }
+        .chat-history-item:hover { background: rgba(37, 99, 235, 0.07); border-color: rgba(37, 99, 235, 0.2); }
+        .chat-history-item .t { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+        .chat-history-item .q { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; min-height: 620px; }
+        .chat-panel-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+        .chat-messages { padding: 18px 20px; overflow: auto; flex: 1; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)); }
+        .chat-msg { max-width: 78%; padding: 12px 14px; border-radius: 14px; margin: 10px 0; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+        .chat-msg.user { margin-left: auto; background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(37, 99, 235, 0.35); }
+        .chat-msg.ai { margin-right: auto; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.28); }
+        .chat-msg pre { background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); padding: 12px 12px; border-radius: 12px; overflow: auto; margin: 10px 0; }
+        .chat-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace; font-size: 13px; }
+        .chat-msg pre code { display: block; white-space: pre; }
+        .chat-msg ul { margin: 8px 0 8px 18px; }
+        .chat-msg ol { margin: 8px 0 8px 18px; }
+        .chat-msg b, .chat-msg strong { font-weight: 700; }
+        .chat-input { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+        .chat-input textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 160px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; }
+        .chat-input textarea:focus { outline: none; border-color: var(--primary); }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } .chat-panel { min-height: 560px; } }
+        @media (max-width: 768px) { .sidebar { width: 100%; height: auto; position: relative; } .main-content { margin-left: 0; } .stats-grid { grid-template-columns: 1fr; } .filter-row { flex-direction: column; } .filter-item { width: 100%; } }
+    </style>
+    <!-- Markdown 渲染：marked + DOMPurify（允许前端依赖） -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div class="login-container" id="loginPage">
+        <div class="login-box" id="loginBox">
+            <h1>💰 记账系统</h1>
+            <p>后台管理系统，请登录以继续</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="loginUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="loginPassword" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary">登录系统</button>
+            </form>
+            <button class="link-btn" onclick="showForgotPassword()">忘记密码？</button>
+        </div>
+        <!-- 忘记密码 -->
+        <div class="login-box" id="forgotBox" style="display:none;">
+            <h1>🔑 忘记密码</h1>
+            <p>输入注册邮箱，我们将发送重置链接</p>
+            <form id="forgotForm">
+                <div class="form-group">
+                    <label>邮箱地址</label>
+                    <input type="email" id="forgotEmail" placeholder="请输入注册邮箱" required>
+                </div>
+                <button type="submit" class="btn btn-primary">发送重置邮件</button>
+            </form>
+            <button class="link-btn" onclick="showLogin()">返回登录</button>
+        </div>
+        <!-- 重置密码 -->
+        <div class="login-box" id="resetBox" style="display:none;">
+            <h1>🔐 重置密码</h1>
+            <p id="resetInfo">请输入新密码</p>
+            <form id="resetForm">
+                <div class="form-group">
+                    <label>新密码</label>
+                    <input type="password" id="newPassword" placeholder="请输入新密码（至少6位）" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="confirmPassword" placeholder="请再次输入新密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary">确认重置</button>
+            </form>
+            <button class="link-btn" onclick="showLogin()">返回登录</button>
+        </div>
+    </div>
+
+    <!-- 主应用 -->
+    <div class="app-container" id="appContainer">
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">💰</div>
+                <div class="logo-text">记账管理</div>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" data-page="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    数据概览
+                </div>
+                <div class="nav-item" data-page="expenses">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    账单管理
+                </div>
+                <div class="nav-item" data-page="users">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    用户管理
+                </div>
+                <div class="nav-item" data-page="categories">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><path d="M8 6v12"/></svg>
+                    消费类别
+                </div>
+                <div class="nav-item" data-page="export">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    数据导出
+                </div>
+                <div class="nav-item" data-page="incomes">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    收入
+                </div>
+                <div class="nav-item" data-page="ai-models">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    AI模型
+                </div>
+                <div class="nav-item" data-page="ai-analysis">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    AI分析
+                </div>
+                <div class="nav-item" data-page="ai-chat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 10h8"/><path d="M8 14h5"/></svg>
+                    AI聊天
+                </div>
+            </nav>
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div class="user-details">
+                    <div class="user-name" id="displayUsername">管理员</div>
+                    <div class="user-role">系统管理员</div>
+                </div>
+                <button class="logout-btn" onclick="logout()" title="退出登录">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- 数据概览页 -->
+            <div class="page-content active" id="page-dashboard">
+                <div class="page-header"><div><h1 class="page-title">数据概览</h1><p class="page-subtitle">查看系统整体数据统计</p></div></div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon blue">💵</div><div class="stat-value" id="statTotalAmount">¥0.00</div><div class="stat-label">总消费金额</div></div>
+                    <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-value" id="statTotalIncome">¥0.00</div><div class="stat-label">总收入金额</div></div>
+                    <div class="stat-card"><div class="stat-icon orange">📝</div><div class="stat-value" id="statTotalCount">0</div><div class="stat-label">消费记录数</div></div>
+                    <div class="stat-card"><div class="stat-icon red">📈</div><div class="stat-value" id="statIncomeCount">0</div><div class="stat-label">收入记录数</div></div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table"><thead><tr><th>消费类别</th><th>消费金额</th><th>记录数量</th><th>占比</th></tr></thead><tbody id="categoryStatsTable"></tbody></table>
+                </div>
+            </div>
+
+            <!-- 账单管理页 -->
+            <div class="page-content" id="page-expenses">
+                <div class="page-header">
+                    <div><h1 class="page-title">账单管理</h1><p class="page-subtitle">查看和管理所有用户的消费记录</p></div>
+                    <button class="btn btn-success" onclick="openExpenseModal()">➕ 添加记录</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item"><label>开始日期</label><input type="date" id="filterStartDate"></div>
+                        <div class="filter-item"><label>结束日期</label><input type="date" id="filterEndDate"></div>
+                        <div class="filter-item"><label>消费类别</label><select id="filterCategory"><option value="">全部类别</option></select></div>
+                        <div class="filter-item"><label>用户名</label><input type="text" id="filterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadExpenses()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table"><thead><tr><th>ID</th><th>用户名</th><th>金额</th><th>类别</th><th>描述</th><th>消费时间</th><th>操作</th></tr></thead><tbody id="expensesTable"></tbody></table>
+                    <div class="pagination"><div class="pagination-info" id="paginationInfo">共 0 条记录</div><div class="pagination-buttons" id="paginationButtons"></div></div>
+                </div>
+            </div>
+
+            <!-- 用户管理页 -->
+            <div class="page-content" id="page-users">
+                <div class="page-header">
+                    <div><h1 class="page-title">用户管理</h1><p class="page-subtitle">管理系统用户，重置用户密码</p></div>
+                    <div id="emailStatus"></div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>注册时间</th><th>操作</th></tr></thead>
+                        <tbody id="usersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 消费类别页 -->
+            <div class="page-content" id="page-categories">
+                <div class="page-header">
+                    <div><h1 class="page-title">消费类别</h1><p class="page-subtitle">手动维护消费类别，供添加账单/筛选使用</p></div>
+                    <button class="btn btn-success" onclick="openCategoryModal()">➕ 添加类别</button>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>名称</th><th>排序</th><th>创建时间</th><th>操作</th></tr></thead>
+                        <tbody id="categoriesTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 数据导出页 -->
+            <div class="page-content" id="page-export">
+                <div class="page-header"><div><h1 class="page-title">数据导出</h1><p class="page-subtitle">按时间范围导出消费记录为 Excel 文件</p></div></div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item"><label>开始日期 *</label><input type="date" id="exportStartDate" required></div>
+                        <div class="filter-item"><label>结束日期 *</label><input type="date" id="exportEndDate" required></div>
+                        <div class="filter-actions"><button class="btn btn-success" onclick="exportExcel()">📥 导出 Excel</button></div>
+                    </div>
+                </div>
+                <div class="stat-card" style="max-width: 600px;">
+                    <h3 style="margin-bottom: 16px; font-size: 18px;">📋 导出说明</h3>
+                    <ul style="color: var(--text-secondary); line-height: 2;"><li>请选择要导出的时间范围</li><li>导出文件格式为 Excel (.xlsx)</li><li>文件包含：ID、用户名、金额、类别、描述、消费时间、创建时间</li><li>文件末尾包含金额汇总统计</li></ul>
+                </div>
+            </div>
+
+            <!-- 收入管理页 -->
+            <div class="page-content" id="page-incomes">
+                <div class="page-header">
+                    <div><h1 class="page-title">收入</h1><p class="page-subtitle">查看和管理所有用户的收入记录</p></div>
+                    <button class="btn btn-success" onclick="openIncomeModal()">➕ 添加收入</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item"><label>开始日期</label><input type="date" id="incomeFilterStartDate"></div>
+                        <div class="filter-item"><label>结束日期</label><input type="date" id="incomeFilterEndDate"></div>
+                        <div class="filter-item"><label>收入类型</label><input type="text" id="incomeFilterType" placeholder="例如：工资"></div>
+                        <div class="filter-item"><label>用户名</label><input type="text" id="incomeFilterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadIncomes()">查询</button>
+                            <button class="btn btn-secondary" onclick="resetIncomeFilters()">重置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>用户名</th><th>收入金额</th><th>收入类型</th><th>收入时间</th><th>操作</th></tr></thead>
+                        <tbody id="incomesTable"></tbody>
+                    </table>
+                    <div class="pagination">
+                        <div class="pagination-info" id="incomePaginationInfo">共 0 条记录</div>
+                        <div class="pagination-buttons" id="incomePaginationButtons"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI模型管理页 -->
+            <div class="page-content" id="page-ai-models">
+                <div class="page-header">
+                    <div><h1 class="page-title">AI模型管理</h1><p class="page-subtitle">配置和管理AI模型，用于账单分析</p></div>
+                    <button class="btn btn-success" onclick="openAIModelModal()">➕ 添加模型</button>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>模型名称</th><th>调用地址</th><th>创建时间</th><th>操作</th></tr></thead>
+                        <tbody id="aiModelsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- AI分析页 -->
+            <div class="page-content" id="page-ai-analysis">
+                <div class="page-header"><div><h1 class="page-title">AI分析</h1><p class="page-subtitle">使用AI模型分析指定时间范围内的消费记录</p></div></div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item"><label>选择AI模型 *</label><select id="analysisModelId" onchange="onAnalysisModelChange()" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">请选择AI模型</option></select></div>
+                        <div class="filter-item"><label>开始日期 *</label><input type="date" id="analysisStartDate" required></div>
+                        <div class="filter-item"><label>结束日期 *</label><input type="date" id="analysisEndDate" required></div>
+                        <div class="filter-actions">
+                            <button class="btn btn-success" onclick="startAIAnalysis()" id="analysisBtn">🤖 开始分析</button>
+                            <button class="btn btn-secondary" onclick="refreshAnalysisHistory()">刷新历史</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-layout" style="margin-top: 24px;">
+                    <div class="chat-history">
+                        <div class="chat-history-header">
+                            <div style="font-weight:700;">分析历史</div>
+                            <button class="btn btn-secondary btn-sm" onclick="refreshAnalysisHistory()">刷新</button>
+                        </div>
+                        <div class="chat-history-list" id="analysisHistoryList">
+                            <div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择AI模型查看历史</div>
+                        </div>
+                        <div class="pagination" style="border-top:1px solid var(--border);">
+                            <div class="pagination-info" id="analysisPaginationInfo">第 1 / 1 页</div>
+                            <div class="pagination-buttons" id="analysisPaginationButtons"></div>
+                        </div>
+                    </div>
+                    <div class="chat-panel">
+                        <div class="chat-panel-header">
+                            <div style="display:flex;flex-direction:column;gap:2px;">
+                                <div style="font-weight:700;">📊 AI分析结果</div>
+                                <div style="font-size:12px;color:var(--text-secondary);">流式输出结束后自动渲染 Markdown</div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="clearAnalysisResult()">清空</button>
+                        </div>
+                        <div class="chat-messages" id="aiAnalysisResult" style="white-space: normal;">
+                            <div style="color: var(--text-secondary);">请选择AI模型和时间范围，然后点击“开始分析”按钮</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI聊天页 -->
+            <div class="page-content" id="page-ai-chat">
+                <div class="page-header">
+                    <div><h1 class="page-title">AI聊天</h1><p class="page-subtitle">选择AI模型进行对话，支持流式输出并保存聊天记录</p></div>
+                </div>
+                <div class="chat-layout">
+                    <div class="chat-history">
+                        <div class="chat-history-header">
+                            <div style="font-weight:700;">聊天记录</div>
+                            <button class="btn btn-secondary btn-sm" onclick="refreshChatHistory()">刷新</button>
+                        </div>
+                        <div style="padding: 12px 12px 0;">
+                            <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--text-secondary);font-weight:500;">选择AI模型 *</label>
+                            <select id="chatModelId" onchange="onChatModelChange()" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                                <option value="">请选择AI模型</option>
+                            </select>
+                        </div>
+                        <div class="chat-history-list" id="chatHistoryList">
+                            <div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择模型查看历史</div>
+                        </div>
+                    </div>
+                    <div class="chat-panel">
+                        <div class="chat-panel-header">
+                            <div style="display:flex;flex-direction:column;gap:2px;">
+                                <div style="font-weight:700;">对话窗口</div>
+                                <div style="font-size:12px;color:var(--text-secondary);">发送消息后将流式返回，并自动保存本轮对话</div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="clearChatWindow()">清空窗口</button>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <div style="color:var(--text-secondary);">请选择AI模型，然后开始聊天。</div>
+                        </div>
+                        <div class="chat-input">
+                            <textarea id="chatInput" placeholder="输入你想问AI的问题..."></textarea>
+                            <button class="btn btn-success" onclick="sendChatMessage()" id="chatSendBtn">发送</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重置密码模态框 -->
+    <div class="modal" id="resetModal">
+        <div class="modal-content">
+            <div class="modal-title">🔐 重置用户密码</div>
+            <div class="modal-subtitle">用户：<span id="resetModalUser"></span></div>
+            <div class="form-group">
+                <label>新密码</label>
+                <input type="password" id="adminNewPassword" placeholder="请输入新密码（至少6位）" minlength="6">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeResetModal()">取消</button>
+                <button class="btn btn-primary" onclick="confirmAdminReset()">确认重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑消费记录模态框 -->
+    <div class="modal" id="expenseModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-title" id="expenseModalTitle">➕ 添加消费记录</div>
+            <div class="modal-subtitle" id="expenseModalSubtitle">填写消费记录信息</div>
+            <form id="expenseForm">
+                <div class="form-group">
+                    <label>选择用户 *</label>
+                    <select id="expenseUserId" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                        <option value="">请选择用户</option>
+                    </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div class="form-group">
+                        <label>消费金额 *</label>
+                        <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>消费类别 *</label>
+                        <select id="expenseCategory" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                            <option value="">请选择类别</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>消费时间 *</label>
+                    <input type="datetime-local" id="expenseTime" required>
+                </div>
+                <div class="form-group">
+                    <label>描述说明</label>
+                    <input type="text" id="expenseDescription" placeholder="可选，简要描述此笔消费">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">取消</button>
+                    <button type="submit" class="btn btn-success" id="expenseSubmitBtn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-subtitle">确定要删除这条消费记录吗？此操作不可恢复。</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI模型管理模态框 -->
+    <div class="modal" id="aiModelModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title" id="aiModelModalTitle">➕ 添加AI模型</div>
+            <div class="modal-subtitle" id="aiModelModalSubtitle">配置AI模型的调用信息</div>
+            <form id="aiModelForm">
+                <div class="form-group">
+                    <label>模型名称 *</label>
+                    <input type="text" id="aiModelName" placeholder="例如：OpenAI GPT-4" required maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label>调用地址 *</label>
+                    <input type="url" id="aiModelBaseURL" placeholder="https://api.openai.com/v1" required>
+                </div>
+                <div class="form-group">
+                    <label>API密钥 *</label>
+                    <input type="password" id="aiModelAPIKey" placeholder="sk-..." required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeAIModelModal()">取消</button>
+                    <button type="submit" class="btn btn-success" id="aiModelSubmitBtn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除AI模型确认模态框 -->
+    <div class="modal" id="deleteAIModelModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-subtitle">确定要删除这个AI模型配置吗？此操作不可恢复。</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteAIModelModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteAIModel()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消费类别模态框 -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-title" id="categoryModalTitle">➕ 添加消费类别</div>
+            <div class="modal-subtitle" id="categoryModalSubtitle">维护类别名称与排序</div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label>类别名称 *</label>
+                    <input type="text" id="categoryName" placeholder="例如：餐饮" required maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>排序（越小越靠前）</label>
+                    <input type="number" id="categorySort" placeholder="例如：10" step="1">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">取消</button>
+                    <button type="submit" class="btn btn-success" id="categorySubmitBtn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除消费类别确认 -->
+    <div class="modal" id="deleteCategoryModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-subtitle">确定要删除该消费类别吗？（软删除）</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteCategoryModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteCategory()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 收入新增/编辑模态框 -->
+    <div class="modal" id="incomeModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-title" id="incomeModalTitle">➕ 添加收入</div>
+            <div class="modal-subtitle" id="incomeModalSubtitle">填写收入信息</div>
+            <form id="incomeForm">
+                <div class="form-group">
+                    <label>选择用户 *</label>
+                    <select id="incomeUserId" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                        <option value="">请选择用户</option>
+                    </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div class="form-group">
+                        <label>收入金额 *</label>
+                        <input type="number" id="incomeAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>收入类型 *</label>
+                        <input type="text" id="incomeType" placeholder="例如：工资" required maxlength="50">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>收入时间 *</label>
+                    <input type="datetime-local" id="incomeTime" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeIncomeModal()">取消</button>
+                    <button type="submit" class="btn btn-success" id="incomeSubmitBtn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除收入确认 -->
+    <div class="modal" id="deleteIncomeModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-subtitle">确定要删除这条收入记录吗？（软删除）</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteIncomeModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteIncome()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1, totalPages = 1, currentUsername = '', resetToken = '', resetUserId = null, emailEnabled = false;
+        let editingExpenseId = null, deleteExpenseId = null, allUsers = [];
+        let editingAIModelId = null, deleteAIModelId = null, allAIModels = [];
+        let chatStreaming = false, chatCurrentAIEl = null, chatHistoryPage = 1;
+        let analysisHistoryPage = 1, analysisHistoryPageSize = 10, analysisHistoryTotalPages = 1;
+        let allCategories = [], editingCategoryId = null, deleteCategoryId = null;
+        let incomeCurrentPage = 1, incomeTotalPages = 1, editingIncomeId = null, deleteIncomeId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkResetToken();
+            checkAuth();
+            initNavigation();
+            setDefaultDates();
+        });
+
+        function checkResetToken() {
+            const hash = window.location.hash;
+            if (hash.includes('reset-password')) {
+                const params = new URLSearchParams(hash.split('?')[1]);
+                resetToken = params.get('token');
+                if (resetToken) verifyResetToken();
+            }
+        }
+
+        async function verifyResetToken() {
+            try {
+                const res = await fetch(`/admin/password/verify-token?token=${resetToken}`);
+                const data = await res.json();
+                if (data.success) {
+                    showResetPassword(data.data.username);
+                } else {
+                    showToast(data.message, 'error');
+                    showLogin();
+                }
+            } catch (e) { showToast('验证失败', 'error'); showLogin(); }
+        }
+
+        function showLogin() {
+            document.getElementById('loginBox').style.display = 'block';
+            document.getElementById('forgotBox').style.display = 'none';
+            document.getElementById('resetBox').style.display = 'none';
+            window.location.hash = '';
+        }
+
+        function showForgotPassword() {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('forgotBox').style.display = 'block';
+            document.getElementById('resetBox').style.display = 'none';
+        }
+
+        function showResetPassword(username) {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('forgotBox').style.display = 'none';
+            document.getElementById('resetBox').style.display = 'block';
+            document.getElementById('resetInfo').textContent = `为用户 ${username} 设置新密码`;
+        }
+
+        document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgotEmail').value;
+            try {
+                const res = await fetch('/admin/password/request-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) showLogin();
+            } catch (e) { showToast('请求失败', 'error'); }
+        });
+
+        document.getElementById('resetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPwd = document.getElementById('newPassword').value;
+            const confirmPwd = document.getElementById('confirmPassword').value;
+            if (newPwd !== confirmPwd) { showToast('两次密码不一致', 'error'); return; }
+            try {
+                const res = await fetch('/admin/password/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resetToken, new_password: newPwd })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) { showLogin(); window.location.hash = ''; }
+            } catch (e) { showToast('重置失败', 'error'); }
+        });
+
+        function checkAuth() {
+            const username = getCookie('admin_username');
+            if (username) { currentUsername = username; showApp(); loadStatistics(); loadEmailConfig(); }
+        }
+
+        function showApp() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            document.getElementById('displayUsername').textContent = currentUsername;
+            document.getElementById('userAvatar').textContent = currentUsername.charAt(0).toUpperCase();
+        }
+
+        function initNavigation() {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const page = item.dataset.page;
+                    switchPage(page);
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    item.classList.add('active');
+                });
+            });
+        }
+
+        function switchPage(page) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${page}`).classList.add('active');
+            if (page === 'dashboard') loadStatistics();
+            else if (page === 'expenses') loadExpenses();
+            else if (page === 'users') loadUsers();
+            else if (page === 'categories') loadCategories();
+            else if (page === 'incomes') { setDefaultIncomeDates(); loadIncomes(); }
+            else if (page === 'ai-models') loadAIModels();
+            else if (page === 'ai-analysis') { loadAIModelsForAnalysis(); setDefaultAnalysisDates(); }
+            else if (page === 'ai-chat') { loadAIModelsForChat(); }
+        }
+
+        function setDefaultIncomeDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const s = document.getElementById('incomeFilterStartDate');
+            const e = document.getElementById('incomeFilterEndDate');
+            if (s && !s.value) s.value = formatDate(firstDay);
+            if (e && !e.value) e.value = formatDate(today);
+        }
+
+        function setDefaultDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            document.getElementById('filterStartDate').value = formatDate(firstDay);
+            document.getElementById('filterEndDate').value = formatDate(today);
+            document.getElementById('exportStartDate').value = formatDate(firstDay);
+            document.getElementById('exportEndDate').value = formatDate(today);
+        }
+
+        function setDefaultAnalysisDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            document.getElementById('analysisStartDate').value = formatDate(firstDay);
+            document.getElementById('analysisEndDate').value = formatDate(today);
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentUsername = username;
+                    showToast('登录成功', 'success');
+                    showApp();
+                    loadStatistics();
+                    loadEmailConfig();
+                } else { showToast(data.message || '登录失败', 'error'); }
+            } catch (err) { showToast('网络错误', 'error'); }
+        });
+
+        async function logout() {
+            try { await fetch('/admin/logout', { method: 'POST' }); } catch (e) {}
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+            showLogin();
+            showToast('已退出登录', 'success');
+        }
+
+        async function loadEmailConfig() {
+            try {
+                const res = await fetch('/admin/email-config');
+                const data = await res.json();
+                if (data.success) {
+                    emailEnabled = data.data.enabled;
+                    document.getElementById('emailStatus').innerHTML = emailEnabled 
+                        ? '<span class="email-badge">邮件服务已启用</span>'
+                        : '<span class="email-badge disabled">邮件服务未启用</span>';
+                }
+            } catch (e) {}
+        }
+
+        async function loadStatistics() {
+            try {
+                const res = await fetch('/admin/statistics');
+                const data = await res.json();
+                if (data.success) {
+                    const stats = data.data;
+                    document.getElementById('statTotalAmount').textContent = `¥${stats.total_amount.toFixed(2)}`;
+                    document.getElementById('statTotalCount').textContent = stats.total_count;
+                    document.getElementById('statTotalIncome').textContent = `¥${(stats.total_income || 0).toFixed(2)}`;
+                    document.getElementById('statIncomeCount').textContent = stats.income_count || 0;
+                    const tbody = document.getElementById('categoryStatsTable');
+                    if (stats.category_stats && stats.category_stats.length > 0) {
+                        tbody.innerHTML = stats.category_stats.map(cat => `<tr><td><span class="category-tag ${cat.category}">${cat.category}</span></td><td class="amount">¥${cat.total.toFixed(2)}</td><td>${cat.count} 条</td><td>${((cat.total / stats.total_amount) * 100).toFixed(1)}%</td></tr>`).join('');
+                    } else { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">暂无数据</td></tr>'; }
+                }
+            } catch (err) { console.error('加载统计数据失败:', err); }
+        }
+
+        async function loadExpenses() {
+            // 确保筛选下拉是最新的数据库类别
+            if (!allCategories || allCategories.length === 0) {
+                await refreshExpenseCategorySelectors();
+            }
+            const params = new URLSearchParams({ page: currentPage, page_size: 15 });
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            const category = document.getElementById('filterCategory').value;
+            const username = document.getElementById('filterUsername').value;
+            if (startDate) params.append('start_time', startDate);
+            if (endDate) params.append('end_time', endDate);
+            if (category) params.append('category', category);
+            if (username) params.append('username', username);
+            try {
+                const res = await fetch(`/admin/expenses?${params}`);
+                const data = await res.json();
+                if (data.success) renderExpensesTable(data.data);
+            } catch (err) { console.error('加载消费记录失败:', err); }
+        }
+
+        function renderExpensesTable(data) {
+            const tbody = document.getElementById('expensesTable');
+            if (!data.list || data.list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无消费记录</td></tr>';
+            } else {
+                tbody.innerHTML = data.list.map(item => `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.username || '-'}</td>
+                        <td class="amount">¥${item.amount.toFixed(2)}</td>
+                        <td><span class="category-tag ${item.category}">${item.category}</span></td>
+                        <td>${item.description || '-'}</td>
+                        <td>${formatDateTime(item.expense_time)}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn btn-primary btn-sm" onclick="openEditExpenseModal(${item.id}, ${item.user_id}, ${item.amount}, '${item.category}', '${item.description || ''}', '${item.expense_time}')">编辑</button>
+                                <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${item.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            totalPages = Math.ceil(data.total / data.page_size) || 1;
+            document.getElementById('paginationInfo').textContent = `共 ${data.total} 条记录，第 ${data.page} / ${totalPages} 页`;
+            renderPagination();
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('paginationButtons');
+            let html = `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= totalPages && i <= 5; i++) html += `<button class="page-btn ${currentPage === i ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            if (totalPages > 5) html += `<span style="padding: 8px;">...</span><button class="page-btn ${currentPage === totalPages ? 'active' : ''}" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+            html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>`;
+            container.innerHTML = html;
+        }
+
+        function goToPage(page) { if (page < 1 || page > totalPages) return; currentPage = page; loadExpenses(); }
+        function resetFilters() { setDefaultDates(); document.getElementById('filterCategory').value = ''; document.getElementById('filterUsername').value = ''; currentPage = 1; loadExpenses(); }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) renderUsersTable(data.data);
+            } catch (err) { console.error('加载用户列表失败:', err); }
+        }
+
+        function renderUsersTable(users) {
+            const tbody = document.getElementById('usersTable');
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
+            } else {
+                tbody.innerHTML = users.map(user => `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.username}</td>
+                        <td>${user.email || '<span style="color:var(--text-secondary)">未设置</span>'}</td>
+                        <td>${formatDateTime(user.created_at)}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username}')">重置密码</button>
+                                ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function openResetModal(userId, username) {
+            resetUserId = userId;
+            document.getElementById('resetModalUser').textContent = username;
+            document.getElementById('adminNewPassword').value = '';
+            document.getElementById('resetModal').classList.add('show');
+        }
+
+        function closeResetModal() { document.getElementById('resetModal').classList.remove('show'); resetUserId = null; }
+
+        async function confirmAdminReset() {
+            const newPassword = document.getElementById('adminNewPassword').value;
+            if (!newPassword || newPassword.length < 6) { showToast('密码至少需要6位', 'warning'); return; }
+            try {
+                const res = await fetch('/admin/password/admin-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: resetUserId, new_password: newPassword })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) closeResetModal();
+            } catch (e) { showToast('重置失败', 'error'); }
+        }
+
+        async function sendResetEmail(userId) {
+            if (!confirm('确定要发送密码重置邮件吗？')) return;
+            try {
+                const res = await fetch('/admin/password/send-reset-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch (e) { showToast('发送失败', 'error'); }
+        }
+
+        function exportExcel() {
+            const startDate = document.getElementById('exportStartDate').value;
+            const endDate = document.getElementById('exportEndDate').value;
+            if (!startDate || !endDate) { showToast('请选择日期范围', 'warning'); return; }
+            window.location.href = `/admin/export/excel?start_time=${startDate}&end_time=${endDate}`;
+            showToast('正在生成 Excel...', 'success');
+        }
+
+        // ===== 消费类别管理功能 =====
+        async function loadCategories() {
+            await loadCategoriesFromServer();
+            renderCategoriesTable();
+            // 同步刷新账单页面下拉
+            renderCategoryOptions(document.getElementById('filterCategory'), true);
+            renderCategoryOptions(document.getElementById('expenseCategory'), false);
+        }
+
+        function renderCategoriesTable() {
+            const tbody = document.getElementById('categoriesTable');
+            if (!tbody) return;
+            if (!allCategories || allCategories.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无类别</td></tr>';
+                return;
+            }
+            tbody.innerHTML = allCategories.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.sort ?? 0}</td>
+                    <td>${formatDateTime(c.created_at)}</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn btn-primary btn-sm" onclick="openEditCategoryModal(${c.id}, '${(c.name || '').replace(/'/g, "\\'")}', ${c.sort ?? 0})">编辑</button>
+                            <button class="btn btn-danger btn-sm" onclick="openDeleteCategoryModal(${c.id})">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openCategoryModal() {
+            editingCategoryId = null;
+            document.getElementById('categoryModalTitle').textContent = '➕ 添加消费类别';
+            document.getElementById('categoryModalSubtitle').textContent = '维护类别名称与排序';
+            document.getElementById('categorySubmitBtn').textContent = '确认添加';
+            document.getElementById('categoryForm').reset();
+            document.getElementById('categoryModal').classList.add('show');
+        }
+
+        function openEditCategoryModal(id, name, sort) {
+            editingCategoryId = id;
+            document.getElementById('categoryModalTitle').textContent = '✏️ 编辑消费类别';
+            document.getElementById('categoryModalSubtitle').textContent = `编辑 ID: ${id}`;
+            document.getElementById('categorySubmitBtn').textContent = '保存修改';
+            document.getElementById('categoryName').value = name || '';
+            document.getElementById('categorySort').value = (sort ?? 0);
+            document.getElementById('categoryModal').classList.add('show');
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('show');
+            editingCategoryId = null;
+        }
+
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = (document.getElementById('categoryName').value || '').trim();
+            const sortStr = document.getElementById('categorySort').value;
+            const sort = sortStr === '' ? 0 : parseInt(sortStr, 10);
+            if (!name) { showToast('请输入类别名称', 'warning'); return; }
+
+            try {
+                let res;
+                if (editingCategoryId) {
+                    res = await fetch(`/admin/categories/${editingCategoryId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, sort })
+                    });
+                } else {
+                    res = await fetch('/admin/categories', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, sort })
+                    });
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message || '成功', 'success');
+                    closeCategoryModal();
+                    loadCategories();
+                } else {
+                    showToast(data.message || '失败', 'error');
+                }
+            } catch (err) {
+                showToast('操作失败', 'error');
+            }
+        });
+
+        function openDeleteCategoryModal(id) {
+            deleteCategoryId = id;
+            document.getElementById('deleteCategoryModal').classList.add('show');
+        }
+
+        function closeDeleteCategoryModal() {
+            document.getElementById('deleteCategoryModal').classList.remove('show');
+            deleteCategoryId = null;
+        }
+
+        async function confirmDeleteCategory() {
+            if (!deleteCategoryId) return;
+            try {
+                const res = await fetch(`/admin/categories/${deleteCategoryId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    closeDeleteCategoryModal();
+                    loadCategories();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        // ===== 收入管理功能 =====
+        async function loadUsersForIncomeSelect() {
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('incomeUserId');
+                    select.innerHTML = '<option value="">请选择用户</option>' +
+                        (data.data || []).map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+                }
+            } catch (e) {}
+        }
+
+        function openIncomeModal() {
+            editingIncomeId = null;
+            document.getElementById('incomeModalTitle').textContent = '➕ 添加收入';
+            document.getElementById('incomeModalSubtitle').textContent = '填写收入信息';
+            document.getElementById('incomeSubmitBtn').textContent = '确认添加';
+            document.getElementById('incomeForm').reset();
+            const now = new Date();
+            document.getElementById('incomeTime').value = formatDateTimeLocal(now);
+            loadUsersForIncomeSelect();
+            document.getElementById('incomeModal').classList.add('show');
+        }
+
+        function openEditIncomeModal(id, userId, amount, type, incomeTime) {
+            editingIncomeId = id;
+            document.getElementById('incomeModalTitle').textContent = '✏️ 编辑收入';
+            document.getElementById('incomeModalSubtitle').textContent = `编辑 ID: ${id}`;
+            document.getElementById('incomeSubmitBtn').textContent = '保存修改';
+            document.getElementById('incomeAmount').value = amount;
+            document.getElementById('incomeType').value = type || '';
+            document.getElementById('incomeTime').value = formatDateTimeLocal(incomeTime);
+            loadUsersForIncomeSelect();
+            setTimeout(() => { document.getElementById('incomeUserId').value = userId; }, 80);
+            document.getElementById('incomeModal').classList.add('show');
+        }
+
+        function closeIncomeModal() {
+            document.getElementById('incomeModal').classList.remove('show');
+            editingIncomeId = null;
+        }
+
+        document.getElementById('incomeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = parseInt(document.getElementById('incomeUserId').value);
+            const amount = parseFloat(document.getElementById('incomeAmount').value);
+            const type = (document.getElementById('incomeType').value || '').trim();
+            const timeStr = document.getElementById('incomeTime').value;
+            if (!userId || !amount || !type || !timeStr) {
+                showToast('请填写所有必填项', 'warning');
+                return;
+            }
+            const payload = {
+                user_id: userId,
+                amount: amount,
+                type: type,
+                income_time: formatDateTimeForApi(timeStr)
+            };
+            try {
+                let res;
+                if (editingIncomeId) {
+                    res = await fetch(`/admin/incomes/${editingIncomeId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/admin/incomes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message || '成功', 'success');
+                    closeIncomeModal();
+                    loadIncomes();
+                    loadStatistics();
+                } else {
+                    showToast(data.message || '失败', 'error');
+                }
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        });
+
+        async function loadIncomes() {
+            const params = new URLSearchParams({ page: incomeCurrentPage, page_size: 15 });
+            const startDate = document.getElementById('incomeFilterStartDate').value;
+            const endDate = document.getElementById('incomeFilterEndDate').value;
+            const type = document.getElementById('incomeFilterType').value;
+            const username = document.getElementById('incomeFilterUsername').value;
+            if (startDate) params.append('start_time', startDate);
+            if (endDate) params.append('end_time', endDate);
+            if (type) params.append('type', type);
+            if (username) params.append('username', username);
+            try {
+                const res = await fetch(`/admin/incomes?${params}`);
+                const data = await res.json();
+                if (data.success) renderIncomesTable(data.data);
+            } catch (e) {}
+        }
+
+        function renderIncomesTable(data) {
+            const tbody = document.getElementById('incomesTable');
+            if (!data.list || data.list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无收入记录</td></tr>';
+            } else {
+                tbody.innerHTML = data.list.map(item => `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.username || '-'}</td>
+                        <td class="amount" style="color: var(--success);">¥${item.amount.toFixed(2)}</td>
+                        <td>${item.type || '-'}</td>
+                        <td>${formatDateTime(item.income_time)}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn btn-primary btn-sm" onclick="openEditIncomeModal(${item.id}, ${item.user_id}, ${item.amount}, ${JSON.stringify(item.type || '')}, ${JSON.stringify(item.income_time)})">编辑</button>
+                                <button class="btn btn-danger btn-sm" onclick="openDeleteIncomeModal(${item.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            incomeTotalPages = Math.ceil(data.total / data.page_size) || 1;
+            document.getElementById('incomePaginationInfo').textContent = `共 ${data.total} 条记录，第 ${data.page} / ${incomeTotalPages} 页`;
+            renderIncomePagination();
+        }
+
+        function renderIncomePagination() {
+            const container = document.getElementById('incomePaginationButtons');
+            let html = `<button class="page-btn" onclick="goToIncomePage(${incomeCurrentPage - 1})" ${incomeCurrentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            html += `<button class="page-btn" onclick="goToIncomePage(${incomeCurrentPage + 1})" ${incomeCurrentPage >= incomeTotalPages ? 'disabled' : ''}>下一页</button>`;
+            container.innerHTML = html;
+        }
+
+        function goToIncomePage(page) {
+            if (page < 1 || page > incomeTotalPages) return;
+            incomeCurrentPage = page;
+            loadIncomes();
+        }
+
+        function resetIncomeFilters() {
+            document.getElementById('incomeFilterType').value = '';
+            document.getElementById('incomeFilterUsername').value = '';
+            document.getElementById('incomeFilterStartDate').value = '';
+            document.getElementById('incomeFilterEndDate').value = '';
+            incomeCurrentPage = 1;
+            setDefaultIncomeDates();
+            loadIncomes();
+        }
+
+        function openDeleteIncomeModal(id) {
+            deleteIncomeId = id;
+            document.getElementById('deleteIncomeModal').classList.add('show');
+        }
+
+        function closeDeleteIncomeModal() {
+            document.getElementById('deleteIncomeModal').classList.remove('show');
+            deleteIncomeId = null;
+        }
+
+        async function confirmDeleteIncome() {
+            if (!deleteIncomeId) return;
+            try {
+                const res = await fetch(`/admin/incomes/${deleteIncomeId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    closeDeleteIncomeModal();
+                    loadIncomes();
+                    loadStatistics();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        function formatDate(date) { return date.toISOString().split('T')[0]; }
+        function formatDateTime(str) { if (!str) return '-'; return new Date(str).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+        function formatDateTimeLocal(str) {
+            if (!str) return '';
+            const d = new Date(str);
+            const pad = n => n.toString().padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+        function formatDateTimeForApi(str) {
+            if (!str) return '';
+            const d = new Date(str);
+            const pad = n => n.toString().padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+        function getCookie(name) { const value = `; ${document.cookie}`; const parts = value.split(`; ${name}=`); if (parts.length === 2) return parts.pop().split(';').shift(); return null; }
+        function showToast(message, type = 'success') { const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; document.body.appendChild(toast); setTimeout(() => toast.remove(), 3000); }
+
+        // ===== 消费记录管理功能 =====
+        async function loadUsersForSelect() {
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    allUsers = data.data;
+                    const select = document.getElementById('expenseUserId');
+                    select.innerHTML = '<option value="">请选择用户</option>' + 
+                        allUsers.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+                }
+            } catch (e) { console.error('加载用户列表失败:', e); }
+        }
+
+        async function loadCategoriesFromServer() {
+            try {
+                const res = await fetch('/admin/categories');
+                const data = await res.json();
+                if (data.success) {
+                    allCategories = data.data || [];
+                } else {
+                    allCategories = [];
+                }
+            } catch (e) {
+                allCategories = [];
+            }
+            return allCategories;
+        }
+
+        function renderCategoryOptions(selectEl, includeAll = false) {
+            if (!selectEl) return;
+            const current = selectEl.value;
+            let html = includeAll ? '<option value="">全部类别</option>' : '<option value="">请选择类别</option>';
+            html += (allCategories || []).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            selectEl.innerHTML = html;
+            if (current) selectEl.value = current;
+        }
+
+        async function refreshExpenseCategorySelectors() {
+            await loadCategoriesFromServer();
+            renderCategoryOptions(document.getElementById('filterCategory'), true);
+            renderCategoryOptions(document.getElementById('expenseCategory'), false);
+        }
+
+        function openExpenseModal() {
+            editingExpenseId = null;
+            document.getElementById('expenseModalTitle').textContent = '➕ 添加消费记录';
+            document.getElementById('expenseModalSubtitle').textContent = '填写消费记录信息';
+            document.getElementById('expenseSubmitBtn').textContent = '确认添加';
+            document.getElementById('expenseForm').reset();
+            // 设置默认时间为当前时间
+            const now = new Date();
+            document.getElementById('expenseTime').value = formatDateTimeLocal(now);
+            loadUsersForSelect();
+            refreshExpenseCategorySelectors();
+            document.getElementById('expenseModal').classList.add('show');
+        }
+
+        function openEditExpenseModal(id, userId, amount, category, description, expenseTime) {
+            editingExpenseId = id;
+            document.getElementById('expenseModalTitle').textContent = '✏️ 编辑消费记录';
+            document.getElementById('expenseModalSubtitle').textContent = `编辑 ID: ${id} 的消费记录`;
+            document.getElementById('expenseSubmitBtn').textContent = '保存修改';
+            loadUsersForSelect().then(() => {
+                document.getElementById('expenseUserId').value = userId;
+            });
+            document.getElementById('expenseAmount').value = amount;
+            refreshExpenseCategorySelectors().then(() => {
+                document.getElementById('expenseCategory').value = category;
+            });
+            document.getElementById('expenseDescription').value = description;
+            document.getElementById('expenseTime').value = formatDateTimeLocal(expenseTime);
+            loadUsersForSelect();
+            setTimeout(() => { document.getElementById('expenseUserId').value = userId; }, 100);
+            document.getElementById('expenseModal').classList.add('show');
+        }
+
+        function closeExpenseModal() {
+            document.getElementById('expenseModal').classList.remove('show');
+            editingExpenseId = null;
+        }
+
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = parseInt(document.getElementById('expenseUserId').value);
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const category = document.getElementById('expenseCategory').value;
+            const description = document.getElementById('expenseDescription').value;
+            const expenseTime = document.getElementById('expenseTime').value;
+
+            if (!userId || !amount || !category || !expenseTime) {
+                showToast('请填写所有必填项', 'warning');
+                return;
+            }
+
+            const data = {
+                user_id: userId,
+                amount: amount,
+                category: category,
+                description: description,
+                expense_time: formatDateTimeForApi(expenseTime)
+            };
+
+            try {
+                let res;
+                if (editingExpenseId) {
+                    // 编辑模式
+                    res = await fetch(`/admin/expenses/${editingExpenseId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // 添加模式
+                    res = await fetch('/admin/expenses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                const result = await res.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    closeExpenseModal();
+                    loadExpenses();
+                    loadStatistics();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('操作失败', 'error');
+            }
+        });
+
+        function openDeleteModal(id) {
+            deleteExpenseId = id;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('show');
+            deleteExpenseId = null;
+        }
+
+        async function confirmDelete() {
+            if (!deleteExpenseId) return;
+            try {
+                const res = await fetch(`/admin/expenses/${deleteExpenseId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    closeDeleteModal();
+                    loadExpenses();
+                    loadStatistics();
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        // ===== AI模型管理功能 =====
+        async function loadAIModels() {
+            try {
+                const res = await fetch('/admin/ai-models');
+                const data = await res.json();
+                if (data.success) {
+                    allAIModels = data.data;
+                    renderAIModelsTable(data.data);
+                }
+            } catch (e) {
+                console.error('加载AI模型列表失败:', e);
+                showToast('加载失败', 'error');
+            }
+        }
+
+        function renderAIModelsTable(models) {
+            const tbody = document.getElementById('aiModelsTable');
+            if (!models || models.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无AI模型配置</td></tr>';
+            } else {
+                tbody.innerHTML = models.map(model => `
+                    <tr>
+                        <td>${model.id}</td>
+                        <td><strong>${model.name}</strong></td>
+                        <td style="word-break: break-all; color: var(--text-secondary);">${model.base_url}</td>
+                        <td>${formatDateTime(model.created_at)}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn btn-primary btn-sm" onclick="openEditAIModelModal(${model.id}, '${model.name}', '${model.base_url}')">编辑</button>
+                                <button class="btn btn-danger btn-sm" onclick="openDeleteAIModelModal(${model.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function openAIModelModal() {
+            editingAIModelId = null;
+            document.getElementById('aiModelModalTitle').textContent = '➕ 添加AI模型';
+            document.getElementById('aiModelModalSubtitle').textContent = '配置AI模型的调用信息';
+            document.getElementById('aiModelSubmitBtn').textContent = '确认添加';
+            document.getElementById('aiModelForm').reset();
+            document.getElementById('aiModelModal').classList.add('show');
+        }
+
+        function openEditAIModelModal(id, name, baseURL) {
+            editingAIModelId = id;
+            document.getElementById('aiModelModalTitle').textContent = '✏️ 编辑AI模型';
+            document.getElementById('aiModelModalSubtitle').textContent = `编辑 ID: ${id} 的AI模型配置`;
+            document.getElementById('aiModelSubmitBtn').textContent = '保存修改';
+            document.getElementById('aiModelName').value = name;
+            document.getElementById('aiModelBaseURL').value = baseURL;
+            document.getElementById('aiModelAPIKey').value = ''; // 不显示原密钥，需要重新输入
+            document.getElementById('aiModelAPIKey').placeholder = '如需更新密钥，请输入新密钥';
+            document.getElementById('aiModelAPIKey').required = false; // 编辑时密钥可选
+            document.getElementById('aiModelModal').classList.add('show');
+        }
+
+        function closeAIModelModal() {
+            document.getElementById('aiModelModal').classList.remove('show');
+            editingAIModelId = null;
+            document.getElementById('aiModelAPIKey').required = true; // 恢复必填
+            document.getElementById('aiModelAPIKey').placeholder = 'sk-...';
+        }
+
+        document.getElementById('aiModelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('aiModelName').value;
+            const baseURL = document.getElementById('aiModelBaseURL').value;
+            const apiKey = document.getElementById('aiModelAPIKey').value;
+
+            if (!name || !baseURL) {
+                showToast('请填写所有必填项', 'warning');
+                return;
+            }
+
+            // 编辑模式下，如果API密钥为空，则不更新密钥
+            const data = {
+                name: name,
+                base_url: baseURL
+            };
+            if (apiKey || !editingAIModelId) {
+                data.api_key = apiKey;
+            }
+
+            try {
+                let res;
+                if (editingAIModelId) {
+                    res = await fetch(`/admin/ai-models/${editingAIModelId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    res = await fetch('/admin/ai-models', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                const result = await res.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    closeAIModelModal();
+                    loadAIModels();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('操作失败', 'error');
+            }
+        });
+
+        function openDeleteAIModelModal(id) {
+            deleteAIModelId = id;
+            document.getElementById('deleteAIModelModal').classList.add('show');
+        }
+
+        function closeDeleteAIModelModal() {
+            document.getElementById('deleteAIModelModal').classList.remove('show');
+            deleteAIModelId = null;
+        }
+
+        async function confirmDeleteAIModel() {
+            if (!deleteAIModelId) return;
+            try {
+                const res = await fetch(`/admin/ai-models/${deleteAIModelId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    closeDeleteAIModelModal();
+                    loadAIModels();
+                    loadAIModelsForAnalysis(); // 同时更新分析页面的下拉列表
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        // ===== AI分析功能 =====
+        async function loadAIModelsForAnalysis() {
+            try {
+                const res = await fetch('/admin/ai-models');
+                const data = await res.json();
+                if (data.success) {
+                    allAIModels = data.data;
+                    const select = document.getElementById('analysisModelId');
+                    select.innerHTML = '<option value="">请选择AI模型</option>' + 
+                        data.data.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+                    // 默认加载一次历史
+                    refreshAnalysisHistory();
+                }
+            } catch (e) {
+                console.error('加载AI模型列表失败:', e);
+            }
+        }
+
+        function clearAnalysisResult() {
+            const resultDiv = document.getElementById('aiAnalysisResult');
+            resultDiv.innerHTML = '<div style="color: var(--text-secondary);">请选择AI模型和时间范围，然后点击“开始分析”按钮</div>';
+        }
+
+        function onAnalysisModelChange() {
+            analysisHistoryPage = 1;
+            refreshAnalysisHistory();
+        }
+
+        async function refreshAnalysisHistory() {
+            const modelId = document.getElementById('analysisModelId').value;
+            const listEl = document.getElementById('analysisHistoryList');
+            if (!modelId) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择AI模型查看历史</div>';
+                document.getElementById('analysisPaginationInfo').textContent = '第 1 / 1 页';
+                document.getElementById('analysisPaginationButtons').innerHTML = '';
+                return;
+            }
+            try {
+                const params = new URLSearchParams({ model_id: modelId, page: analysisHistoryPage, page_size: analysisHistoryPageSize });
+                const res = await fetch(`/admin/ai-analysis/history?${params}`);
+                const data = await res.json();
+                if (!data.success) {
+                    listEl.innerHTML = `<div style="padding:16px;color:var(--danger);text-align:center;">${data.message || '加载失败'}</div>`;
+                    return;
+                }
+                const total = (data.data && typeof data.data.total === 'number') ? data.data.total : 0;
+                analysisHistoryTotalPages = Math.max(1, Math.ceil(total / analysisHistoryPageSize));
+                // 防止删除后页码越界
+                if (analysisHistoryPage > analysisHistoryTotalPages) {
+                    analysisHistoryPage = analysisHistoryTotalPages;
+                    return refreshAnalysisHistory();
+                }
+                renderAnalysisHistory(data.data.list || []);
+                renderAnalysisPagination(total);
+            } catch (e) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--danger);text-align:center;">加载失败</div>';
+            }
+        }
+
+        function renderAnalysisPagination(total) {
+            const info = document.getElementById('analysisPaginationInfo');
+            const btns = document.getElementById('analysisPaginationButtons');
+            info.textContent = `共 ${total} 条，第 ${analysisHistoryPage} / ${analysisHistoryTotalPages} 页`;
+            btns.innerHTML = `
+                <button class="page-btn" onclick="goToAnalysisPage(${analysisHistoryPage - 1})" ${analysisHistoryPage <= 1 ? 'disabled' : ''}>上一页</button>
+                <button class="page-btn" onclick="goToAnalysisPage(${analysisHistoryPage + 1})" ${analysisHistoryPage >= analysisHistoryTotalPages ? 'disabled' : ''}>下一页</button>
+            `;
+        }
+
+        function goToAnalysisPage(page) {
+            if (page < 1 || page > analysisHistoryTotalPages) return;
+            analysisHistoryPage = page;
+            refreshAnalysisHistory();
+        }
+
+        function renderAnalysisHistory(items) {
+            const listEl = document.getElementById('analysisHistoryList');
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);text-align:center;">暂无分析历史</div>';
+                return;
+            }
+            listEl.innerHTML = items.map(it => {
+                const t = it.created_at ? formatDateTime(it.created_at) : '-';
+                const title = `${it.start_date} ~ ${it.end_date}`;
+                return `<div class="chat-history-item" data-id="${it.id}">
+                    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
+                        <div style="flex:1;min-width:0;">
+                            <div class="t">${t}</div>
+                            <div class="q">${title}</div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-shrink:0;">
+                            <button class="btn btn-primary btn-sm" onclick="showAnalysisRecord(${it.id})">查看</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteAnalysisRecord(${it.id})">删除</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            window.__analysisHistoryCache = items;
+        }
+
+        function showAnalysisRecord(id) {
+            const items = window.__analysisHistoryCache || [];
+            const it = items.find(x => x.id === id);
+            if (!it) return;
+            const resultDiv = document.getElementById('aiAnalysisResult');
+            resultDiv.innerHTML = renderMarkdown(it.result || '');
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+        }
+
+        async function deleteAnalysisRecord(id) {
+            if (!confirm('确定要删除这条分析历史吗？')) return;
+            try {
+                const res = await fetch(`/admin/ai-analysis/history/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    refreshAnalysisHistory();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        async function startAIAnalysis() {
+            const modelId = document.getElementById('analysisModelId').value;
+            const startDate = document.getElementById('analysisStartDate').value;
+            const endDate = document.getElementById('analysisEndDate').value;
+
+            if (!modelId || !startDate || !endDate) {
+                showToast('请填写所有必填项', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('analysisBtn');
+            const resultDiv = document.getElementById('aiAnalysisResult');
+            
+            btn.disabled = true;
+            btn.textContent = '分析中...';
+            resultDiv.textContent = '正在分析，请稍候...\n\n';
+            let raw = '';
+
+            try {
+                const response = await fetch('/admin/ai-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model_id: parseInt(modelId),
+                        start_time: startDate,
+                        end_time: endDate
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '分析失败');
+                }
+
+                // 处理SSE流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                resultDiv.textContent = '';
+                let sawDone = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // 保留最后一个不完整的行
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+                        
+                        if (line.startsWith('data: ')) {
+                            const payload = line.slice(6);
+                            // 新格式：JSON 帧
+                            try {
+                                const frame = JSON.parse(payload);
+                                if (frame.type === 'delta') {
+                                    raw += frame.content || '';
+                                    resultDiv.textContent += frame.content || '';
+                                    resultDiv.scrollTop = resultDiv.scrollHeight;
+                                } else if (frame.type === 'done') {
+                                    sawDone = true;
+                                } else if (frame.type === 'error') {
+                                    throw new Error(frame.content || '分析失败');
+                                }
+                            } catch (e) {
+                                // 兼容旧格式（纯文本）
+                                if (payload.trim() === '[DONE]') { sawDone = true; continue; }
+                                raw += payload;
+                                resultDiv.textContent += payload;
+                                resultDiv.scrollTop = resultDiv.scrollHeight;
+                            }
+                        } else if (line.startsWith('event: ')) {
+                            // 忽略事件类型
+                            continue;
+                        } else if (line.startsWith('id: ')) {
+                            // 忽略ID
+                            continue;
+                        } else if (line.trim()) {
+                            // 其他内容直接显示
+                            raw += line;
+                            resultDiv.textContent += line;
+                            resultDiv.scrollTop = resultDiv.scrollHeight;
+                        }
+                    }
+                }
+
+                // 处理剩余的buffer
+                if (buffer.trim()) {
+                    raw += buffer;
+                    resultDiv.textContent += buffer;
+                }
+
+                if (resultDiv.textContent.trim() === '') {
+                    resultDiv.textContent = '分析完成，但未收到内容。';
+                }
+
+                // DONE 后立即渲染 Markdown（marked）
+                if (sawDone || raw.trim()) {
+                    resultDiv.innerHTML = renderMarkdown(raw || resultDiv.textContent);
+                }
+                refreshAnalysisHistory();
+            } catch (error) {
+                resultDiv.textContent = `分析失败: ${error.message}`;
+                showToast('分析失败', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 开始分析';
+            }
+        }
+
+        // ===== AI聊天功能 =====
+        async function loadAIModelsForChat() {
+            try {
+                const res = await fetch('/admin/ai-models');
+                const data = await res.json();
+                if (data.success) {
+                    allAIModels = data.data || [];
+                    const select = document.getElementById('chatModelId');
+                    const prev = select.value;
+                    select.innerHTML = '<option value="">请选择AI模型</option>' +
+                        allAIModels.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+                    if (prev) select.value = prev;
+                }
+            } catch (e) {
+                console.error('加载AI模型列表失败:', e);
+            }
+        }
+
+        function onChatModelChange() {
+            chatHistoryPage = 1;
+            refreshChatHistory();
+            clearChatWindow();
+        }
+
+        async function refreshChatHistory() {
+            const modelId = document.getElementById('chatModelId').value;
+            const listEl = document.getElementById('chatHistoryList');
+            if (!modelId) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择模型查看历史</div>';
+                return;
+            }
+            try {
+                const params = new URLSearchParams({ model_id: modelId, page: chatHistoryPage, page_size: 30 });
+                const res = await fetch(`/admin/ai-chat/history?${params}`);
+                const data = await res.json();
+                if (!data.success) {
+                    listEl.innerHTML = `<div style="padding:16px;color:var(--danger);text-align:center;">${data.message || '加载失败'}</div>`;
+                    return;
+                }
+                renderChatHistory(data.data.list || []);
+            } catch (e) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--danger);text-align:center;">加载失败</div>';
+            }
+        }
+
+        async function deleteChatRecord(id) {
+            if (!confirm('确定要删除这条聊天记录吗？')) return;
+            try {
+                const res = await fetch(`/admin/ai-chat/history/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    refreshChatHistory();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        function renderChatHistory(items) {
+            const listEl = document.getElementById('chatHistoryList');
+            if (!items || items.length === 0) {
+                listEl.innerHTML = '<div style="padding:16px;color:var(--text-secondary);text-align:center;">暂无聊天记录</div>';
+                return;
+            }
+            listEl.innerHTML = items.map(it => {
+                const t = it.created_at ? formatDateTime(it.created_at) : '-';
+                const q = (it.user_text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return `<div class="chat-history-item" data-id="${it.id}">
+                    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;">
+                        <div style="flex:1;min-width:0;cursor:pointer;" onclick="showChatRecord(${it.id})">
+                            <div class="t">${t}</div>
+                            <div class="q">${q}</div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteChatRecord(${it.id})">删除</button>
+                    </div>
+                </div>`;
+            }).join('');
+            // 缓存到 window 方便点击展示
+            window.__chatHistoryCache = items;
+        }
+
+        function showChatRecord(id) {
+            const items = window.__chatHistoryCache || [];
+            const it = items.find(x => x.id === id);
+            if (!it) return;
+            const msgEl = document.getElementById('chatMessages');
+            msgEl.innerHTML = '';
+            appendChatBubble('user', it.user_text || '');
+            const aiEl = appendChatBubble('ai', '');
+            setChatBubbleFormatted(aiEl, it.ai_text || '');
+            msgEl.scrollTop = msgEl.scrollHeight;
+        }
+
+        function clearChatWindow() {
+            const msgEl = document.getElementById('chatMessages');
+            msgEl.innerHTML = '<div style="color:var(--text-secondary);">开始一段新的对话吧。</div>';
+            chatCurrentAIEl = null;
+        }
+
+        function appendChatBubble(role, text) {
+            const msgEl = document.getElementById('chatMessages');
+            // 清掉提示占位
+            if (msgEl.children.length === 1 && msgEl.children[0].tagName === 'DIV' && msgEl.children[0].className === '') {
+                // do nothing
+            }
+            if (msgEl.textContent.includes('请选择AI模型') || msgEl.textContent.includes('开始一段新的对话吧。')) {
+                msgEl.innerHTML = '';
+            }
+            const div = document.createElement('div');
+            div.className = `chat-msg ${role}`;
+            div.textContent = text || '';
+            msgEl.appendChild(div);
+            msgEl.scrollTop = msgEl.scrollHeight;
+            return div;
+        }
+
+        function escapeHtml(s) {
+            return (s || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Markdown 渲染（marked + DOMPurify）。依赖加载失败时自动降级为纯文本。
+        function renderMarkdown(text) {
+            const src = text || '';
+            try {
+                if (window.marked && window.DOMPurify) {
+                    const html = window.marked.parse(src, { breaks: true, gfm: true });
+                    return window.DOMPurify.sanitize(html);
+                }
+            } catch (e) {}
+            // 降级：纯文本 + 换行
+            return escapeHtml(src).replace(/\n/g, '<br>');
+        }
+
+        function setChatBubbleFormatted(el, rawText) {
+            if (!el) return;
+            el.innerHTML = renderMarkdown(rawText || '');
+        }
+
+        async function sendChatMessage() {
+            if (chatStreaming) return;
+            const modelId = document.getElementById('chatModelId').value;
+            const input = document.getElementById('chatInput');
+            const text = (input.value || '').trim();
+            if (!modelId) { showToast('请先选择AI模型', 'warning'); return; }
+            if (!text) { showToast('请输入内容', 'warning'); return; }
+
+            const btn = document.getElementById('chatSendBtn');
+            btn.disabled = true;
+            chatStreaming = true;
+            input.disabled = true;
+
+            appendChatBubble('user', text);
+            chatCurrentAIEl = appendChatBubble('ai', '');
+            input.value = '';
+            let aiRaw = '';
+            let sawDone = false;
+
+            try {
+                const response = await fetch('/admin/ai-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_id: parseInt(modelId), message: text })
+                });
+
+                if (!response.ok) {
+                    const errJson = await response.json().catch(() => ({}));
+                    throw new Error(errJson.message || `请求失败(${response.status})`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const payload = line.slice(6);
+                        try {
+                            const frame = JSON.parse(payload);
+                            if (frame.type === 'delta') {
+                                const delta = frame.content || '';
+                                aiRaw += delta;
+                                if (chatCurrentAIEl) chatCurrentAIEl.textContent += delta;
+                            } else if (frame.type === 'done') {
+                                sawDone = true;
+                            } else if (frame.type === 'error') {
+                                throw new Error(frame.content || '聊天失败');
+                            }
+                        } catch (e) {
+                            // 兼容旧格式
+                            if (payload.trim() === '[DONE]') { sawDone = true; continue; }
+                            aiRaw += payload;
+                            if (chatCurrentAIEl) chatCurrentAIEl.textContent += payload;
+                        }
+                        const msgEl = document.getElementById('chatMessages');
+                        msgEl.scrollTop = msgEl.scrollHeight;
+                    }
+                }
+
+                // 收到结束标记后立刻格式化整段内容
+                if (chatCurrentAIEl) {
+                    setChatBubbleFormatted(chatCurrentAIEl, aiRaw || chatCurrentAIEl.textContent);
+                }
+
+                // 结束后刷新历史
+                refreshChatHistory();
+            } catch (e) {
+                if (chatCurrentAIEl) chatCurrentAIEl.textContent += `\n\n（错误：${e.message}）`;
+                showToast('发送失败', 'error');
+            } finally {
+                btn.disabled = false;
+                chatStreaming = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+    </script>
+</body>
+</html>
