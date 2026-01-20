@@ -2,8 +2,8 @@ package api
 
 import (
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"finance/database"
@@ -319,11 +319,11 @@ func (h *ExpenseHandler) Delete(c *gin.Context) {
 
 // GetCategories 获取消费类别列表
 // @Summary 获取消费类别列表
-// @Description 获取所有可用的消费类别
+// @Description 获取所有可用的消费类别，返回完整的类别对象数组（包含ID、名称、排序等）
 // @Tags 消费记录
 // @Accept json
 // @Produce json
-// @Success 200 {object} Response{data=[]string} "获取成功"
+// @Success 200 {object} Response{data=[]models.ExpenseCategory} "获取成功"
 // @Router /api/v1/categories [get]
 func (h *ExpenseHandler) GetCategories(c *gin.Context) {
 	var list []models.ExpenseCategory
@@ -331,12 +331,8 @@ func (h *ExpenseHandler) GetCategories(c *gin.Context) {
 		InternalError(c, "查询失败: "+err.Error())
 		return
 	}
-	// App 端返回 string[]（保持兼容）
-	var names []string
-	for _, it := range list {
-		names = append(names, it.Name)
-	}
-	Success(c, names)
+	// 返回完整的类别对象数组，包含ID、名称、排序等信息
+	Success(c, list)
 }
 
 // GetStatistics 获取消费统计
@@ -394,8 +390,7 @@ func (h *ExpenseHandler) GetStatistics(c *gin.Context) {
 		Scan(&categoryStats)
 
 	Success(c, gin.H{
-		"total_amount":    totalAmount,
-		"category_stats":  categoryStats,
+		"total_amount":   totalAmount,
+		"category_stats": categoryStats,
 	})
 }
-
