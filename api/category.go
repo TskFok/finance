@@ -19,13 +19,15 @@ func NewCategoryHandler() *CategoryHandler {
 }
 
 type CategoryCreateRequest struct {
-	Name string `json:"name" binding:"required,min=1,max=50"`
-	Sort int    `json:"sort"`
+	Name  string `json:"name" binding:"required,min=1,max=50"`
+	Sort  int    `json:"sort"`
+	Color string `json:"color" binding:"omitempty,max=20"` // 颜色代码，如 #ef4444
 }
 
 type CategoryUpdateRequest struct {
-	Name string `json:"name" binding:"omitempty,min=1,max=50"`
-	Sort *int   `json:"sort"`
+	Name  string  `json:"name" binding:"omitempty,min=1,max=50"`
+	Sort  *int    `json:"sort"`
+	Color *string `json:"color" binding:"omitempty,max=20"`
 }
 
 // List 列出所有类别（不包含软删除）
@@ -58,7 +60,11 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	cat := models.ExpenseCategory{Name: req.Name, Sort: req.Sort}
+	color := req.Color
+	if color == "" {
+		color = "#64748b" // 默认灰色
+	}
+	cat := models.ExpenseCategory{Name: req.Name, Sort: req.Sort, Color: color}
 	if err := database.DB.Create(&cat).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
 		return
@@ -103,6 +109,13 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	if req.Sort != nil {
 		updates["sort"] = *req.Sort
 	}
+	if req.Color != nil {
+		color := *req.Color
+		if color == "" {
+			color = "#64748b" // 默认灰色
+		}
+		updates["color"] = color
+	}
 	if len(updates) == 0 {
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "无需更新"})
 		return
@@ -134,5 +147,3 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})
 }
-
-

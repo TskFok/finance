@@ -64,11 +64,27 @@ func Init(cfg *config.Config) error {
 	DB.Model(&models.ExpenseCategory{}).Count(&catCount)
 	if catCount == 0 {
 		defaultCats := models.GetCategories()
+		// 默认类别对应的颜色（与前端 CSS 保持一致）
+		colorMap := map[string]string{
+			"餐饮": "#ef4444", // 红色
+			"交通": "#3b82f6", // 蓝色
+			"购物": "#a855f7", // 紫色
+			"娱乐": "#ec4899", // 粉色
+			"医疗": "#10b981", // 绿色
+			"教育": "#f59e0b", // 橙色
+			"住房": "#14b8a6", // 青色
+			"其他": "#64748b", // 灰色
+		}
 		var cats []models.ExpenseCategory
 		for i, name := range defaultCats {
+			color := colorMap[name]
+			if color == "" {
+				color = "#64748b" // 默认灰色
+			}
 			cats = append(cats, models.ExpenseCategory{
-				Name: name,
-				Sort: (i + 1) * 10,
+				Name:  name,
+				Sort:  (i + 1) * 10,
+				Color: color,
 			})
 		}
 		if len(cats) > 0 {
@@ -84,4 +100,3 @@ func Init(cfg *config.Config) error {
 func GetDB() *gorm.DB {
 	return DB
 }
-
