@@ -704,6 +704,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/expenses/detailed-statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取消费统计信息，支持多种时间范围筛选（月、年、自定义）和多个类别筛选。返回按类别统计的数据，适合绘制饼图和柱状图。\n\n时间范围类型说明：\n- month: 按月统计，需要传入 year_month 参数（格式：2024-01）\n- year: 按年统计，需要传入 year 参数（格式：2024）\n- custom: 自定义时间范围，需要传入 start_time 和 end_time 参数（格式：2024-01-01）\n\n类别筛选说明：\n- categories: 可选的类别筛选，多个类别用逗号分隔（如：餐饮,交通），不传则统计所有类别\n\n返回数据说明：\n- total_amount: 总金额\n- total_count: 总记录数\n- category_stats: 按类别统计的数组，每个元素包含 category（类别名称）、total（总金额）、count（记录数）、percentage（占比百分比）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "消费记录"
+                ],
+                "summary": "获取详细消费统计",
+                "parameters": [
+                    {
+                        "enum": [
+                            "month",
+                            "year",
+                            "custom"
+                        ],
+                        "type": "string",
+                        "description": "时间范围类型：month（月）/year（年）/custom（自定义）",
+                        "name": "range_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "年月（当range_type=month时必填，格式：2024-01）",
+                        "name": "year_month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "年份（当range_type=year时必填，格式：2024）",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间（当range_type=custom时必填，格式：2024-01-01）",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间（当range_type=custom时必填，格式：2024-12-31）",
+                        "name": "end_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "类别筛选，多个类别用逗号分隔（如：餐饮,交通）",
+                        "name": "categories",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回统计数据和分类统计",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/expenses/statistics": {
             "get": {
                 "security": [

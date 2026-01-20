@@ -424,3 +424,174 @@ func (h *ExpenseHandler) GetStatistics(c *gin.Context) {
 		"category_stats": categoryStats,
 	})
 }
+
+// GetDetailedStatistics 获取详细消费统计（支持月/年/自定义时间范围和多个类别筛选）
+// @Summary 获取详细消费统计
+// @Description 获取消费统计信息，支持多种时间范围筛选（月、年、自定义）和多个类别筛选。返回按类别统计的数据，适合绘制饼图和柱状图。
+// @Description
+// @Description 时间范围类型说明：
+// @Description - month: 按月统计，需要传入 year_month 参数（格式：2024-01）
+// @Description - year: 按年统计，需要传入 year 参数（格式：2024）
+// @Description - custom: 自定义时间范围，需要传入 start_time 和 end_time 参数（格式：2024-01-01）
+// @Description
+// @Description 类别筛选说明：
+// @Description - categories: 可选的类别筛选，多个类别用逗号分隔（如：餐饮,交通），不传则统计所有类别
+// @Description
+// @Description 返回数据说明：
+// @Description - total_amount: 总金额
+// @Description - total_count: 总记录数
+// @Description - category_stats: 按类别统计的数组，每个元素包含 category（类别名称）、total（总金额）、count（记录数）、percentage（占比百分比）
+// @Tags 消费记录
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param range_type query string true "时间范围类型：month（月）/year（年）/custom（自定义）" Enums(month,year,custom)
+// @Param year_month query string false "年月（当range_type=month时必填，格式：2024-01）"
+// @Param year query string false "年份（当range_type=year时必填，格式：2024）"
+// @Param start_time query string false "开始时间（当range_type=custom时必填，格式：2024-01-01）"
+// @Param end_time query string false "结束时间（当range_type=custom时必填，格式：2024-12-31）"
+// @Param categories query string false "类别筛选，多个类别用逗号分隔（如：餐饮,交通）"
+// @Success 200 {object} Response "获取成功，返回统计数据和分类统计"
+// @Failure 400 {object} Response "请求参数错误"
+// @Failure 401 {object} Response "未授权"
+// @Router /api/v1/expenses/detailed-statistics [get]
+func (h *ExpenseHandler) GetDetailedStatistics(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	rangeType := c.Query("range_type")
+	if rangeType == "" {
+		BadRequest(c, "range_type参数必填，可选值：month、year、custom")
+		return
+	}
+
+	query := database.DB.Model(&models.Expense{}).Where("user_id = ?", userID)
+
+	var startTime, endTime time.Time
+	var err error
+
+	// 根据时间范围类型设置时间范围
+	switch rangeType {
+	case "month":
+		yearMonth := c.Query("year_month")
+		if yearMonth == "" {
+			BadRequest(c, "range_type=month时，year_month参数必填（格式：2024-01）")
+			return
+		}
+		startTime, err = time.ParseInLocation("2006-01", yearMonth, time.Local)
+		if err != nil {
+			BadRequest(c, "year_month格式错误，应为：2024-01")
+			return
+		}
+		// 该月的第一天 00:00:00
+		startTime = time.Date(startTime.Year(), startTime.Month(), 1, 0, 0, 0, 0, time.Local)
+		// 该月的最后一天 23:59:59
+		endTime = startTime.AddDate(0, 1, 0).Add(-time.Second)
+
+	case "year":
+		yearStr := c.Query("year")
+		if yearStr == "" {
+			BadRequest(c, "range_type=year时，year参数必填（格式：2024）")
+			return
+		}
+		year, err := strconv.Atoi(yearStr)
+		if err != nil || year < 2000 || year > 2100 {
+			BadRequest(c, "year格式错误，应为4位数字（如：2024）")
+			return
+		}
+		// 该年的第一天
+		startTime = time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
+		// 该年的最后一天
+		endTime = time.Date(year, 12, 31, 23, 59, 59, 0, time.Local)
+
+	case "custom":
+		startTimeStr := c.Query("start_time")
+		endTimeStr := c.Query("end_time")
+		if startTimeStr == "" || endTimeStr == "" {
+			BadRequest(c, "range_type=custom时，start_time和end_time参数必填（格式：2024-01-01）")
+			return
+		}
+		startTime, err = time.ParseInLocation("2006-01-02", startTimeStr, time.Local)
+		if err != nil {
+			BadRequest(c, "start_time格式错误，应为：2024-01-01")
+			return
+		}
+		endTime, err = time.ParseInLocation("2006-01-02", endTimeStr, time.Local)
+		if err != nil {
+			BadRequest(c, "end_time格式错误，应为：2024-12-31")
+			return
+		}
+		// 包含结束日期当天
+		endTime = endTime.Add(24*time.Hour - time.Second)
+
+	default:
+		BadRequest(c, "range_type参数值错误，可选值：month、year、custom")
+		return
+	}
+
+	// 应用时间范围筛选
+	query = query.Where("expense_time >= ? AND expense_time <= ?", startTime, endTime)
+
+	// 类别筛选（支持多个类别）
+	categoriesStr := c.Query("categories")
+	if categoriesStr != "" {
+		categories := strings.Split(categoriesStr, ",")
+		// 去除空格
+		for i := range categories {
+			categories[i] = strings.TrimSpace(categories[i])
+		}
+		if len(categories) > 0 {
+			query = query.Where("category IN ?", categories)
+		}
+	}
+
+	// 总金额和总记录数
+	var totalAmount float64
+	var totalCount int64
+	query.Select("COALESCE(SUM(amount), 0)").Scan(&totalAmount)
+	query.Count(&totalCount)
+
+	// 按类别统计
+	type CategoryStat struct {
+		Category   string  `json:"category"`
+		Total      float64 `json:"total"`
+		Count      int64   `json:"count"`
+		Percentage float64 `json:"percentage"`
+	}
+	var categoryStats []CategoryStat
+
+	// 构建类别统计查询
+	categoryQuery := database.DB.Model(&models.Expense{}).
+		Select("category, SUM(amount) as total, COUNT(*) as count").
+		Where("user_id = ? AND expense_time >= ? AND expense_time <= ?", userID, startTime, endTime)
+
+	// 应用类别筛选
+	if categoriesStr != "" {
+		categories := strings.Split(categoriesStr, ",")
+		for i := range categories {
+			categories[i] = strings.TrimSpace(categories[i])
+		}
+		if len(categories) > 0 {
+			categoryQuery = categoryQuery.Where("category IN ?", categories)
+		}
+	}
+
+	categoryQuery.Group("category").Order("total DESC").Scan(&categoryStats)
+
+	// 计算每个类别的占比
+	for i := range categoryStats {
+		if totalAmount > 0 {
+			categoryStats[i].Percentage = (categoryStats[i].Total / totalAmount) * 100
+		} else {
+			categoryStats[i].Percentage = 0
+		}
+	}
+
+	Success(c, gin.H{
+		"range_type":     rangeType,
+		"start_time":     startTime.Format("2006-01-02 15:04:05"),
+		"end_time":       endTime.Format("2006-01-02 15:04:05"),
+		"total_amount":   totalAmount,
+		"total_count":    totalCount,
+		"category_stats": categoryStats,
+	})
+}

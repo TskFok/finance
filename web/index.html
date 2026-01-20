@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -146,6 +147,22 @@
         .chat-msg ul { margin: 8px 0 8px 18px; }
         .chat-msg ol { margin: 8px 0 8px 18px; }
         .chat-msg b, .chat-msg strong { font-weight: 700; }
+        .drawer { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: var(--bg-card); border-left: 1px solid var(--border); z-index: 2000; transition: right 0.3s ease; box-shadow: -4px 0 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .drawer.show { right: 0; }
+        .drawer-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .drawer-title { font-size: 18px; font-weight: 700; }
+        .drawer-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s; }
+        .drawer-close:hover { background: var(--bg-input); color: var(--text-primary); }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+        .drawer-footer { padding: 20px 24px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
+        .drawer-footer .btn { flex: 1; }
+        .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1999; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .drawer-overlay.show { opacity: 1; visibility: visible; }
+        .category-checkbox-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; cursor: pointer; transition: all 0.2s; background: var(--bg-input); }
+        .category-checkbox-item:hover { border-color: var(--primary); background: rgba(37, 99, 235, 0.1); }
+        .category-checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+        .category-checkbox-item label { flex: 1; cursor: pointer; font-size: 14px; }
+        .category-checkbox-item.selected { border-color: var(--primary); background: rgba(37, 99, 235, 0.15); }
         .chat-input { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
         .chat-input textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 160px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; }
         .chat-input textarea:focus { outline: none; border-color: var(--primary); }
@@ -224,6 +241,10 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                     账单管理
                 </div>
+                <div class="nav-item" data-page="statistics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M12 17V5M6 17v-3"/></svg>
+                    账单统计
+                </div>
                 <div class="nav-item" data-page="users">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     用户管理
@@ -301,6 +322,105 @@
                 <div class="data-table-container">
                     <table class="data-table"><thead><tr><th>ID</th><th>用户名</th><th>金额</th><th>类别</th><th>描述</th><th>消费时间</th><th>操作</th></tr></thead><tbody id="expensesTable"></tbody></table>
                     <div class="pagination"><div class="pagination-info" id="paginationInfo">共 0 条记录</div><div class="pagination-buttons" id="paginationButtons"></div></div>
+                </div>
+            </div>
+
+            <!-- 账单统计页 -->
+            <div class="page-content" id="page-statistics">
+                <div class="page-header">
+                    <div><h1 class="page-title">账单统计</h1><p class="page-subtitle">按时间范围和类别筛选，查看消费统计图表</p></div>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item">
+                            <label>时间范围类型</label>
+                            <select id="statRangeType" onchange="onStatRangeTypeChange()">
+                                <option value="month">按月统计</option>
+                                <option value="year">按年统计</option>
+                                <option value="custom">自定义时间</option>
+                            </select>
+                        </div>
+                        <div class="filter-item" id="statMonthGroup">
+                            <label>年月</label>
+                            <input type="month" id="statYearMonth">
+                        </div>
+                        <div class="filter-item" id="statYearGroup" style="display: none;">
+                            <label>年份</label>
+                            <input type="number" id="statYear" min="2000" max="2100" placeholder="2024">
+                        </div>
+                        <div class="filter-item" id="statCustomGroup" style="display: none;">
+                            <label>开始日期</label>
+                            <input type="date" id="statStartDate">
+                        </div>
+                        <div class="filter-item" id="statCustomEndGroup" style="display: none;">
+                            <label>结束日期</label>
+                            <input type="date" id="statEndDate">
+                        </div>
+                        <div class="filter-item" style="flex: 1; min-width: 200px;">
+                            <label>消费类别筛选</label>
+                            <button class="btn btn-secondary" onclick="openCategoryDrawer()" style="width: 100%; justify-content: space-between;">
+                                <span id="statCategoryButtonText">选择类别（可多选）</span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadStatisticsData()">查询统计</button>
+                            <button class="btn btn-secondary" onclick="resetStatisticsFilters()">重置</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <h3 style="margin-bottom: 16px; font-size: 18px;">📊 总览</h3>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: var(--text-secondary);">总金额：</span>
+                                <span style="font-size: 20px; font-weight: 700; color: var(--primary-light);" id="detailStatTotalAmount">¥0.00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: var(--text-secondary);">总记录数：</span>
+                                <span style="font-size: 20px; font-weight: 700;" id="detailStatTotalCount">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: var(--text-secondary);">时间范围：</span>
+                                <span style="font-size: 14px;" id="detailStatTimeRange">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3 style="margin-bottom: 16px; font-size: 18px;">📋 类别统计</h3>
+                        <div id="statCategoryList" style="max-height: 200px; overflow-y: auto;">
+                            <p style="color: var(--text-secondary); text-align: center; padding: 20px;">请点击"查询统计"获取数据</p>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="stat-card">
+                        <h3 style="margin-bottom: 16px; font-size: 18px;">🥧 饼图 - 消费类别占比</h3>
+                        <canvas id="pieChart" style="max-height: 400px;"></canvas>
+                    </div>
+                    <div class="stat-card">
+                        <h3 style="margin-bottom: 16px; font-size: 18px;">📊 柱状图 - 消费类别金额</h3>
+                        <canvas id="barChart" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 类别筛选抽屉 -->
+            <div class="drawer-overlay" id="categoryDrawerOverlay" onclick="closeCategoryDrawer()"></div>
+            <div class="drawer" id="categoryDrawer">
+                <div class="drawer-header">
+                    <div class="drawer-title">选择消费类别</div>
+                    <button class="drawer-close" onclick="closeCategoryDrawer()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="drawer-body" id="categoryDrawerBody">
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">可多选，留空表示统计全部类别</p>
+                </div>
+                <div class="drawer-footer">
+                    <button class="btn btn-secondary" onclick="clearCategorySelection()">清空</button>
+                    <button class="btn btn-primary" onclick="closeCategoryDrawer()">确定</button>
                 </div>
             </div>
 
@@ -781,6 +901,7 @@
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'dashboard') loadStatistics();
             else if (page === 'expenses') loadExpenses();
+            else if (page === 'statistics') { initStatisticsPage(); loadStatisticsData(); }
             else if (page === 'users') loadUsers();
             else if (page === 'categories') loadCategories();
             else if (page === 'incomes') { setDefaultIncomeDates(); loadIncomes(); }
@@ -2095,6 +2216,355 @@
                 input.disabled = false;
                 input.focus();
             }
+        }
+
+        // ========== 账单统计相关函数 ==========
+        let pieChartInstance = null;
+        let barChartInstance = null;
+        let allCategoriesForStats = [];
+
+        async function initStatisticsPage() {
+            // 加载类别列表用于多选
+            try {
+                const res = await fetch('/api/v1/categories');
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    allCategoriesForStats = data.data;
+                    renderCategoryCheckboxes();
+                }
+            } catch (e) {
+                console.error('加载类别列表失败:', e);
+            }
+            // 设置默认时间
+            setDefaultStatisticsDates();
+        }
+
+        function renderCategoryCheckboxes() {
+            const container = document.getElementById('categoryDrawerBody');
+            if (!container) return;
+            container.innerHTML = '';
+            allCategoriesForStats.forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'category-checkbox-item';
+                item.onclick = function(e) {
+                    if (e.target && e.target.type === 'checkbox') {
+                        updateCategoryItemStyle(item, e.target.checked);
+                        updateCategoryButtonText();
+                        return;
+                    }
+                    // 点击整行/文字都切换（避免 label 默认行为导致双切换）
+                    if (e.target && e.target.tagName === 'LABEL') return;
+                    if (e.target && e.target.tagName === 'SPAN') {
+                        const checkbox = item.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                        updateCategoryItemStyle(item, checkbox.checked);
+                        updateCategoryButtonText();
+                        return;
+                    }
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    updateCategoryItemStyle(item, checkbox.checked);
+                    updateCategoryButtonText();
+                };
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = cat.name;
+                checkbox.id = `statCat_${cat.id}`;
+                checkbox.onchange = function() {
+                    updateCategoryItemStyle(item, this.checked);
+                    updateCategoryButtonText();
+                };
+                
+                const text = document.createElement('span');
+                text.textContent = cat.name;
+                text.style.userSelect = 'none';
+                
+                item.appendChild(checkbox);
+                item.appendChild(text);
+                container.appendChild(item);
+            });
+        }
+
+        function updateCategoryItemStyle(item, checked) {
+            if (checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        }
+
+        function updateCategoryButtonText() {
+            const selected = getSelectedCategories();
+            const btnText = document.getElementById('statCategoryButtonText');
+            if (selected.length === 0) {
+                btnText.textContent = '选择类别（可多选）';
+            } else {
+                btnText.textContent = `已选择 ${selected.length} 个类别`;
+            }
+        }
+
+        function openCategoryDrawer() {
+            document.getElementById('categoryDrawer').classList.add('show');
+            document.getElementById('categoryDrawerOverlay').classList.add('show');
+        }
+
+        function closeCategoryDrawer() {
+            document.getElementById('categoryDrawer').classList.remove('show');
+            document.getElementById('categoryDrawerOverlay').classList.remove('show');
+        }
+
+        function clearCategorySelection() {
+            document.querySelectorAll('#categoryDrawerBody input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+                const item = cb.closest('.category-checkbox-item');
+                if (item) updateCategoryItemStyle(item, false);
+            });
+            updateCategoryButtonText();
+        }
+
+        function setDefaultStatisticsDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const monthInput = document.getElementById('statYearMonth');
+            if (monthInput) {
+                const yearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                monthInput.value = yearMonth;
+            }
+            const yearInput = document.getElementById('statYear');
+            if (yearInput) yearInput.value = today.getFullYear();
+            const startInput = document.getElementById('statStartDate');
+            const endInput = document.getElementById('statEndDate');
+            if (startInput && !startInput.value) startInput.value = formatDate(firstDay);
+            if (endInput && !endInput.value) endInput.value = formatDate(today);
+        }
+
+        function onStatRangeTypeChange() {
+            const rangeType = document.getElementById('statRangeType').value;
+            document.getElementById('statMonthGroup').style.display = rangeType === 'month' ? 'block' : 'none';
+            document.getElementById('statYearGroup').style.display = rangeType === 'year' ? 'block' : 'none';
+            document.getElementById('statCustomGroup').style.display = rangeType === 'custom' ? 'block' : 'none';
+            document.getElementById('statCustomEndGroup').style.display = rangeType === 'custom' ? 'block' : 'none';
+        }
+
+        function resetStatisticsFilters() {
+            document.getElementById('statRangeType').value = 'month';
+            onStatRangeTypeChange();
+            setDefaultStatisticsDates();
+            // 取消所有类别选择
+            document.querySelectorAll('#categoryDrawerBody input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+                const item = cb.closest('.category-checkbox-item');
+                if (item) updateCategoryItemStyle(item, false);
+            });
+            updateCategoryButtonText();
+            // 清空图表
+            if (pieChartInstance) { pieChartInstance.destroy(); pieChartInstance = null; }
+            if (barChartInstance) { barChartInstance.destroy(); barChartInstance = null; }
+            document.getElementById('detailStatTotalAmount').textContent = '¥0.00';
+            document.getElementById('detailStatTotalCount').textContent = '0';
+            document.getElementById('detailStatTimeRange').textContent = '-';
+            document.getElementById('statCategoryList').innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">请点击"查询统计"获取数据</p>';
+        }
+
+        function getSelectedCategories() {
+            const checkboxes = document.querySelectorAll('#categoryDrawerBody input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        async function loadStatisticsData() {
+            const rangeType = document.getElementById('statRangeType').value;
+            let url = '/admin/expenses/detailed-statistics?range_type=' + encodeURIComponent(rangeType);
+            
+            // 根据时间范围类型添加参数
+            if (rangeType === 'month') {
+                const yearMonth = document.getElementById('statYearMonth').value;
+                if (!yearMonth) { showToast('请选择年月', 'warning'); return; }
+                url += '&year_month=' + encodeURIComponent(yearMonth);
+            } else if (rangeType === 'year') {
+                const year = document.getElementById('statYear').value;
+                if (!year) { showToast('请输入年份', 'warning'); return; }
+                url += '&year=' + encodeURIComponent(year);
+            } else if (rangeType === 'custom') {
+                const startDate = document.getElementById('statStartDate').value;
+                const endDate = document.getElementById('statEndDate').value;
+                if (!startDate || !endDate) { showToast('请选择开始和结束日期', 'warning'); return; }
+                url += '&start_time=' + encodeURIComponent(startDate) + '&end_time=' + encodeURIComponent(endDate);
+            }
+
+            // 添加类别筛选
+            const selectedCategories = getSelectedCategories();
+            if (selectedCategories.length > 0) {
+                url += '&categories=' + encodeURIComponent(selectedCategories.join(','));
+            }
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    renderStatistics(data.data);
+                } else {
+                    showToast(data.message || '获取统计数据失败', 'error');
+                }
+            } catch (e) {
+                console.error('获取统计数据失败:', e);
+                showToast('获取统计数据失败', 'error');
+            }
+        }
+
+        function renderStatistics(data) {
+            // 更新总览 - 确保数据类型正确
+            const totalAmount = typeof data.total_amount === 'number' ? data.total_amount : parseFloat(data.total_amount) || 0;
+            const totalCount = typeof data.total_count === 'number' ? data.total_count : parseInt(data.total_count) || 0;
+            document.getElementById('detailStatTotalAmount').textContent = '¥' + totalAmount.toFixed(2);
+            document.getElementById('detailStatTotalCount').textContent = totalCount;
+            document.getElementById('detailStatTimeRange').textContent = (data.start_time || '-') + ' 至 ' + (data.end_time || '-');
+
+            // 更新类别列表
+            const categoryListEl = document.getElementById('statCategoryList');
+            if (data.category_stats && data.category_stats.length > 0) {
+                categoryListEl.innerHTML = data.category_stats.map(stat => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span>${stat.category}</span>
+                        <span style="font-weight: 600;">¥${stat.total.toFixed(2)} (${stat.count}条, ${stat.percentage.toFixed(1)}%)</span>
+                    </div>
+                `).join('');
+            } else {
+                categoryListEl.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">暂无数据</p>';
+            }
+
+            // 渲染图表
+            renderPieChart(data.category_stats || []);
+            renderBarChart(data.category_stats || []);
+        }
+
+        function renderPieChart(categoryStats) {
+            const ctx = document.getElementById('pieChart');
+            if (!ctx) return;
+
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+            }
+
+            if (categoryStats.length === 0) {
+                ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+                return;
+            }
+
+            const colors = [
+                'rgba(239, 68, 68, 0.8)',   // red
+                'rgba(59, 130, 246, 0.8)', // blue
+                'rgba(168, 85, 247, 0.8)', // purple
+                'rgba(236, 72, 153, 0.8)', // pink
+                'rgba(16, 185, 129, 0.8)', // green
+                'rgba(245, 158, 11, 0.8)', // orange
+                'rgba(34, 211, 238, 0.8)', // cyan
+                'rgba(251, 146, 60, 0.8)', // orange-400
+            ];
+
+            pieChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: categoryStats.map(s => s.category),
+                    datasets: [{
+                        data: categoryStats.map(s => s.total),
+                        backgroundColor: colors.slice(0, categoryStats.length),
+                        borderColor: 'var(--bg-main)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: 'var(--text-primary)',
+                                padding: 15,
+                                font: { size: 13 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ¥${value.toFixed(2)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBarChart(categoryStats) {
+            const ctx = document.getElementById('barChart');
+            if (!ctx) return;
+
+            if (barChartInstance) {
+                barChartInstance.destroy();
+            }
+
+            if (categoryStats.length === 0) {
+                ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+                return;
+            }
+
+            barChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: categoryStats.map(s => s.category),
+                    datasets: [{
+                        label: '消费金额',
+                        data: categoryStats.map(s => s.total),
+                        backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return '金额: ¥' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: 'var(--text-secondary)',
+                                callback: function(value) {
+                                    return '¥' + value.toFixed(0);
+                                }
+                            },
+                            grid: {
+                                color: 'var(--border)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'var(--text-secondary)'
+                            },
+                            grid: {
+                                color: 'var(--border)'
+                            }
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -204,6 +205,145 @@ func (h *AdminHandler) GetStatistics(c *gin.Context) {
 			"total_income":   totalIncome,
 			"income_count":   incomeCount,
 			"user_count":     userCount,
+			"category_stats": categoryStats,
+		},
+	})
+}
+
+// GetDetailedStatistics 获取详细消费统计（管理员后台，支持月/年/自定义时间范围和多个类别筛选）
+func (h *AdminHandler) GetDetailedStatistics(c *gin.Context) {
+	rangeType := c.Query("range_type")
+	if rangeType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type参数必填，可选值：month、year、custom"})
+		return
+	}
+
+	query := database.DB.Model(&models.Expense{})
+
+	var startTime, endTime time.Time
+	var err error
+
+	// 根据时间范围类型设置时间范围
+	switch rangeType {
+	case "month":
+		yearMonth := c.Query("year_month")
+		if yearMonth == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type=month时，year_month参数必填（格式：2024-01）"})
+			return
+		}
+		startTime, err = time.ParseInLocation("2006-01", yearMonth, time.Local)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "year_month格式错误，应为：2024-01"})
+			return
+		}
+		startTime = time.Date(startTime.Year(), startTime.Month(), 1, 0, 0, 0, 0, time.Local)
+		endTime = startTime.AddDate(0, 1, 0).Add(-time.Second)
+
+	case "year":
+		yearStr := c.Query("year")
+		if yearStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type=year时，year参数必填（格式：2024）"})
+			return
+		}
+		year, err := strconv.Atoi(yearStr)
+		if err != nil || year < 2000 || year > 2100 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "year格式错误，应为4位数字（如：2024）"})
+			return
+		}
+		startTime = time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
+		endTime = time.Date(year, 12, 31, 23, 59, 59, 0, time.Local)
+
+	case "custom":
+		startTimeStr := c.Query("start_time")
+		endTimeStr := c.Query("end_time")
+		if startTimeStr == "" || endTimeStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type=custom时，start_time和end_time参数必填（格式：2024-01-01）"})
+			return
+		}
+		startTime, err = time.ParseInLocation("2006-01-02", startTimeStr, time.Local)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "start_time格式错误，应为：2024-01-01"})
+			return
+		}
+		endTime, err = time.ParseInLocation("2006-01-02", endTimeStr, time.Local)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "end_time格式错误，应为：2024-12-31"})
+			return
+		}
+		endTime = endTime.Add(24*time.Hour - time.Second)
+
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type参数值错误，可选值：month、year、custom"})
+		return
+	}
+
+	// 应用时间范围筛选
+	query = query.Where("expense_time >= ? AND expense_time <= ?", startTime, endTime)
+
+	// 类别筛选（支持多个类别）
+	categoriesStr := c.Query("categories")
+	if categoriesStr != "" {
+		categories := strings.Split(categoriesStr, ",")
+		for i := range categories {
+			categories[i] = strings.TrimSpace(categories[i])
+		}
+		if len(categories) > 0 {
+			query = query.Where("category IN ?", categories)
+		}
+	}
+
+	// 总金额和总记录数
+	var totalAmount float64
+	var totalCount int64
+	// 先获取总数（需要在Select之前）
+	query.Count(&totalCount)
+	// 再获取总金额
+	query.Select("COALESCE(SUM(amount), 0)").Scan(&totalAmount)
+
+	// 按类别统计
+	type CategoryStat struct {
+		Category   string  `json:"category"`
+		Total      float64 `json:"total"`
+		Count      int64   `json:"count"`
+		Percentage float64 `json:"percentage"`
+	}
+	var categoryStats []CategoryStat
+
+	// 构建类别统计查询
+	categoryQuery := database.DB.Model(&models.Expense{}).
+		Select("category, SUM(amount) as total, COUNT(*) as count").
+		Where("expense_time >= ? AND expense_time <= ?", startTime, endTime)
+
+	// 应用类别筛选
+	if categoriesStr != "" {
+		categories := strings.Split(categoriesStr, ",")
+		for i := range categories {
+			categories[i] = strings.TrimSpace(categories[i])
+		}
+		if len(categories) > 0 {
+			categoryQuery = categoryQuery.Where("category IN ?", categories)
+		}
+	}
+
+	categoryQuery.Group("category").Order("total DESC").Scan(&categoryStats)
+
+	// 计算每个类别的占比
+	for i := range categoryStats {
+		if totalAmount > 0 {
+			categoryStats[i].Percentage = (categoryStats[i].Total / totalAmount) * 100
+		} else {
+			categoryStats[i].Percentage = 0
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"range_type":     rangeType,
+			"start_time":     startTime.Format("2006-01-02 15:04:05"),
+			"end_time":       endTime.Format("2006-01-02 15:04:05"),
+			"total_amount":   totalAmount,
+			"total_count":    totalCount,
 			"category_stats": categoryStats,
 		},
 	})
@@ -421,8 +561,8 @@ func (h *AdminHandler) ExportExcel(c *gin.Context) {
 
 	// 设置表头样式
 	headerStyle, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true, Size: 12, Color: "FFFFFF"},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"4F81BD"}, Pattern: 1},
+		Font:      &excelize.Font{Bold: true, Size: 12, Color: "FFFFFF"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"4F81BD"}, Pattern: 1},
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 		Border: []excelize.Border{
 			{Type: "left", Color: "000000", Style: 1},
@@ -480,8 +620,8 @@ func (h *AdminHandler) ExportExcel(c *gin.Context) {
 	// 添加汇总行
 	summaryRow := len(expenses) + 2
 	summaryStyle, _ := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{Bold: true, Size: 11},
-		Fill: excelize.Fill{Type: "pattern", Color: []string{"FFC000"}, Pattern: 1},
+		Font:      &excelize.Font{Bold: true, Size: 11},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"FFC000"}, Pattern: 1},
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 		Border: []excelize.Border{
 			{Type: "left", Color: "000000", Style: 1},
@@ -509,4 +649,3 @@ func (h *AdminHandler) ExportExcel(c *gin.Context) {
 		return
 	}
 }
-
