@@ -256,6 +256,23 @@ type AdminUpdateIncomeRequest struct {
 }
 
 func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
+	// 获取当前用户（需要从 admin.go 导入 getCurrentUser，但这里先直接实现）
+	userIDStr, err := c.Cookie("admin_user_id")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	var currentUser models.User
+	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	page := 1
 	pageSize := 20
 	if p := c.Query("page"); p != "" {
@@ -268,10 +285,23 @@ func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 	endTime := c.Query("end_time")
 	typ := c.Query("type")
 	username := c.Query("username")
+	userIDFilter := c.Query("user_id") // 管理员可以按用户ID筛选
 
 	query := database.DB.Model(&models.Income{}).
 		Select("incomes.*, users.username").
 		Joins("LEFT JOIN users ON incomes.user_id = users.id")
+
+	// 权限过滤：非管理员只能看自己的数据
+	if !currentUser.IsAdmin {
+		query = query.Where("incomes.user_id = ?", currentUser.ID)
+	} else {
+		// 管理员可以按用户ID筛选
+		if userIDFilter != "" {
+			if uid, err := strconv.ParseUint(userIDFilter, 10, 32); err == nil {
+				query = query.Where("incomes.user_id = ?", uint(uid))
+			}
+		}
+	}
 
 	if startTime != "" {
 		if t, err := time.ParseInLocation("2006-01-02", startTime, time.Local); err == nil {
@@ -314,11 +344,35 @@ func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 }
 
 func (h *AdminHandler) CreateIncome(c *gin.Context) {
+	// 获取当前用户
+	userIDStr, err := c.Cookie("admin_user_id")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	var currentUser models.User
+	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	var req AdminCreateIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
 		return
 	}
+
+	// 权限检查：非管理员只能为自己创建记录
+	if !currentUser.IsAdmin && req.UserID != currentUser.ID {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，只能为自己创建记录"})
+		return
+	}
+
 	var user models.User
 	if err := database.DB.First(&user, req.UserID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
@@ -338,6 +392,23 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 }
 
 func (h *AdminHandler) UpdateIncome(c *gin.Context) {
+	// 获取当前用户
+	userIDStr, err := c.Cookie("admin_user_id")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	var currentUser models.User
+	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	idStr := c.Param("id")
 	var id uint
 	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
@@ -347,6 +418,12 @@ func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 	var in models.Income
 	if err := database.DB.First(&in, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "记录不存在"})
+		return
+	}
+
+	// 权限检查：非管理员只能修改自己的记录
+	if !currentUser.IsAdmin && in.UserID != currentUser.ID {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，只能修改自己的记录"})
 		return
 	}
 	var req AdminUpdateIncomeRequest
@@ -395,5 +472,3 @@ func (h *AdminHandler) DeleteIncome(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})
 }
-
-

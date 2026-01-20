@@ -12,6 +12,7 @@ type User struct {
 	Username  string         `json:"username" gorm:"uniqueIndex;size:50;not null"`
 	Password  string         `json:"-" gorm:"size:255;not null"`
 	Email     string         `json:"email" gorm:"size:100"`
+	IsAdmin   bool           `json:"is_admin" gorm:"default:false;index"` // 是否为管理员
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
@@ -21,4 +22,3 @@ type User struct {
 func (User) TableName() string {
 	return "users"
 }
-

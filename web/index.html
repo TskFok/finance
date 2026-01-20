@@ -494,7 +494,7 @@
                         <div class="filter-item"><label>开始日期</label><input type="date" id="filterStartDate"></div>
                         <div class="filter-item"><label>结束日期</label><input type="date" id="filterEndDate"></div>
                         <div class="filter-item"><label>消费类别</label><select id="filterCategory"><option value="">全部类别</option></select></div>
-                        <div class="filter-item"><label>用户名</label><input type="text" id="filterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-item" id="filterUsernameItem" style="display: none;"><label>用户名</label><input type="text" id="filterUsername" placeholder="搜索用户名"></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadExpenses()">查询</button>
                             <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
@@ -614,7 +614,7 @@
                 </div>
                 <div class="data-table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>注册时间</th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>管理员</th><th>注册时间</th><th>操作</th></tr></thead>
                         <tbody id="usersTable"></tbody>
                     </table>
                 </div>
@@ -801,7 +801,7 @@
             <div class="modal-title" id="expenseModalTitle">➕ 添加消费记录</div>
             <div class="modal-subtitle" id="expenseModalSubtitle">填写消费记录信息</div>
             <form id="expenseForm">
-                <div class="form-group">
+                <div class="form-group" id="expenseUserIdGroup">
                     <label>选择用户 *</label>
                     <select id="expenseUserId" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
                         <option value="">请选择用户</option>
@@ -934,7 +934,7 @@
             <div class="modal-title" id="incomeModalTitle">➕ 添加收入</div>
             <div class="modal-subtitle" id="incomeModalSubtitle">填写收入信息</div>
             <form id="incomeForm">
-                <div class="form-group">
+                <div class="form-group" id="incomeUserIdGroup">
                     <label>选择用户 *</label>
                     <select id="incomeUserId" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
                         <option value="">请选择用户</option>
@@ -970,6 +970,37 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteIncomeModal()">取消</button>
                 <button class="btn btn-danger" onclick="confirmDeleteIncome()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除用户确认 -->
+    <div class="modal" id="deleteUserModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除用户</div>
+            <div class="modal-subtitle">确定要删除用户 <span id="deleteUserModalUsername"></span> 吗？此操作不可恢复。</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteUserModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteUser()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置管理员权限 -->
+    <div class="modal" id="setAdminModal">
+        <div class="modal-content">
+            <div class="modal-title" id="setAdminModalTitle">设置管理员权限</div>
+            <div class="modal-subtitle">用户：<span id="setAdminModalUsername"></span></div>
+            <div class="form-group">
+                <label>管理员权限</label>
+                <select id="setAdminIsAdmin" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                    <option value="false">否</option>
+                    <option value="true">是</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeSetAdminModal()">取消</button>
+                <button class="btn btn-primary" onclick="confirmSetAdmin()">确认</button>
             </div>
         </div>
     </div>
@@ -1048,6 +1079,7 @@
         let analysisHistoryPage = 1, analysisHistoryPageSize = 10, analysisHistoryTotalPages = 1;
         let allCategories = [], editingCategoryId = null, deleteCategoryId = null;
         let incomeCurrentPage = 1, incomeTotalPages = 1, editingIncomeId = null, deleteIncomeId = null;
+        let isAdmin = false; // 当前用户是否为管理员
 
         document.addEventListener('DOMContentLoaded', () => {
             checkResetToken();
@@ -1080,6 +1112,29 @@
             setTimeout(() => {
                 document.body.style.transition = '';
             }, 300);
+            // 如果图表已存在，重新渲染以应用新主题
+            if (pieChartInstance || barChartInstance) {
+                const categoryListEl = document.getElementById('statCategoryList');
+                if (categoryListEl && categoryListEl.innerHTML && !categoryListEl.innerHTML.includes('暂无数据') && !categoryListEl.innerHTML.includes('请点击')) {
+                    // 尝试从页面数据重新渲染
+                    setTimeout(() => {
+                        if (pieChartInstance) {
+                            const data = pieChartInstance.data;
+                            renderPieChart(data.labels.map((label, i) => ({
+                                category: label,
+                                total: data.datasets[0].data[i]
+                            })));
+                        }
+                        if (barChartInstance) {
+                            const data = barChartInstance.data;
+                            renderBarChart(data.labels.map((label, i) => ({
+                                category: label,
+                                total: data.datasets[0].data[i]
+                            })));
+                        }
+                    }, 100);
+                }
+            }
         }
 
         function openThemeModal() {
@@ -1189,7 +1244,15 @@
 
         function checkAuth() {
             const username = getCookie('admin_username');
-            if (username) { currentUsername = username; showApp(); loadStatistics(); loadEmailConfig(); }
+            const isAdminStr = getCookie('admin_is_admin');
+            if (username) {
+                currentUsername = username;
+                isAdmin = isAdminStr === 'true';
+                showApp();
+                loadStatistics();
+                loadEmailConfig();
+                updateUIByPermission();
+            }
         }
 
         function showApp() {
@@ -1200,6 +1263,54 @@
             document.getElementById('userAvatarCompact').textContent = currentUsername.charAt(0).toUpperCase();
             // 显示右上角工具栏
             document.getElementById('topToolbar').style.display = 'flex';
+        }
+
+        // 根据权限更新UI
+        function updateUIByPermission() {
+            // 隐藏/显示用户管理菜单
+            const usersNavItem = document.querySelector('.nav-item[data-page="users"]');
+            if (usersNavItem) {
+                usersNavItem.style.display = isAdmin ? 'flex' : 'none';
+            }
+            
+            // 如果当前在用户管理页面但不是管理员，跳转到首页
+            const usersPage = document.getElementById('page-users');
+            if (usersPage && usersPage.classList.contains('active') && !isAdmin) {
+                switchPage('dashboard');
+            }
+            
+            // 账单管理页面：根据权限显示/隐藏用户筛选
+            const filterUsernameItem = document.getElementById('filterUsernameItem');
+            if (filterUsernameItem) {
+                filterUsernameItem.style.display = isAdmin ? 'block' : 'none';
+            }
+            
+            // 账单和收入添加/编辑：根据权限显示/隐藏用户选择
+            const expenseUserIdGroup = document.getElementById('expenseUserIdGroup');
+            const incomeUserIdGroup = document.getElementById('incomeUserIdGroup');
+            if (expenseUserIdGroup) {
+                expenseUserIdGroup.style.display = isAdmin ? 'block' : 'none';
+            }
+            if (incomeUserIdGroup) {
+                incomeUserIdGroup.style.display = isAdmin ? 'block' : 'none';
+            }
+            
+            // 非管理员自动设置用户ID为自己
+            if (!isAdmin) {
+                const currentUserId = getCookie('admin_user_id');
+                if (currentUserId) {
+                    const expenseSelect = document.getElementById('expenseUserId');
+                    const incomeSelect = document.getElementById('incomeUserId');
+                    if (expenseSelect) {
+                        expenseSelect.innerHTML = `<option value="${currentUserId}">${currentUsername}</option>`;
+                        expenseSelect.value = currentUserId;
+                    }
+                    if (incomeSelect) {
+                        incomeSelect.innerHTML = `<option value="${currentUserId}">${currentUsername}</option>`;
+                        incomeSelect.value = currentUserId;
+                    }
+                }
+            }
         }
 
         function initNavigation() {
@@ -1218,7 +1329,7 @@
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'dashboard') loadStatistics();
             else if (page === 'expenses') loadExpenses();
-            else if (page === 'statistics') { initStatisticsPage(); loadStatisticsData(); }
+            else if (page === 'statistics') { initStatisticsPage(); }
             else if (page === 'users') loadUsers();
             else if (page === 'categories') loadCategories();
             else if (page === 'incomes') { setDefaultIncomeDates(); loadIncomes(); }
@@ -1387,22 +1498,29 @@
         function renderUsersTable(users) {
             const tbody = document.getElementById('usersTable');
             if (!users || users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
             } else {
-                tbody.innerHTML = users.map(user => `
+                const currentUserId = parseInt(getCookie('admin_user_id') || '0');
+                tbody.innerHTML = users.map(user => {
+                    const isCurrentUser = user.id === currentUserId;
+                    return `
                     <tr>
                         <td>${user.id}</td>
                         <td>${user.username}</td>
                         <td>${user.email || '<span style="color:var(--text-secondary)">未设置</span>'}</td>
+                        <td>${user.is_admin ? '<span class="badge badge-success">是</span>' : '<span class="badge badge-secondary">否</span>'}</td>
                         <td>${formatDateTime(user.created_at)}</td>
                         <td>
                             <div class="action-btns">
-                                <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username}')">重置密码</button>
+                                <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">重置密码</button>
+                                ${!isCurrentUser ? `<button class="btn btn-danger btn-sm" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">删除</button>` : ''}
+                                ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
                                 ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
                             </div>
                         </td>
                     </tr>
-                `).join('');
+                `;
+                }).join('');
             }
         }
 
@@ -1441,6 +1559,68 @@
                 const data = await res.json();
                 showToast(data.message, data.success ? 'success' : 'error');
             } catch (e) { showToast('发送失败', 'error'); }
+        }
+
+        let deleteUserId = null;
+        let setAdminUserId = null;
+
+        function openDeleteUserModal(userId, username) {
+            deleteUserId = userId;
+            document.getElementById('deleteUserModalUsername').textContent = username;
+            document.getElementById('deleteUserModal').classList.add('show');
+        }
+
+        function closeDeleteUserModal() {
+            document.getElementById('deleteUserModal').classList.remove('show');
+            deleteUserId = null;
+        }
+
+        async function confirmDeleteUser() {
+            if (!deleteUserId) return;
+            try {
+                const res = await fetch(`/admin/users/${deleteUserId}`, { method: 'DELETE' });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    closeDeleteUserModal();
+                    loadUsers();
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        function openSetAdminModal(userId, username, currentIsAdmin) {
+            setAdminUserId = userId;
+            document.getElementById('setAdminModalUsername').textContent = username;
+            document.getElementById('setAdminModalTitle').textContent = currentIsAdmin ? '取消管理员权限' : '设置管理员权限';
+            document.getElementById('setAdminIsAdmin').value = currentIsAdmin ? 'true' : 'false';
+            document.getElementById('setAdminModal').classList.add('show');
+        }
+
+        function closeSetAdminModal() {
+            document.getElementById('setAdminModal').classList.remove('show');
+            setAdminUserId = null;
+        }
+
+        async function confirmSetAdmin() {
+            if (!setAdminUserId) return;
+            const isAdmin = document.getElementById('setAdminIsAdmin').value === 'true';
+            try {
+                const res = await fetch(`/admin/users/${setAdminUserId}/admin`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_admin: isAdmin })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    closeSetAdminModal();
+                    loadUsers();
+                }
+            } catch (e) {
+                showToast('更新失败', 'error');
+            }
         }
 
         function exportExcel() {
@@ -1616,8 +1796,14 @@
                 const data = await res.json();
                 if (data.success) {
                     const select = document.getElementById('incomeUserId');
-                    select.innerHTML = '<option value="">请选择用户</option>' +
-                        (data.data || []).map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+                    if (select && isAdmin) {
+                        select.innerHTML = '<option value="">请选择用户</option>' +
+                            (data.data || []).map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+                    } else if (select && !isAdmin) {
+                        const currentUserId = getCookie('admin_user_id');
+                        select.innerHTML = `<option value="${currentUserId}">${currentUsername}</option>`;
+                        select.value = currentUserId;
+                    }
                 }
             } catch (e) {}
         }
@@ -2598,6 +2784,8 @@
             }
             // 设置默认时间
             setDefaultStatisticsDates();
+            // 初始化完成后自动加载数据
+            await loadStatisticsData();
         }
 
         function renderCategoryCheckboxes() {
@@ -2812,16 +3000,29 @@
                 return;
             }
 
-            const colors = [
-                'rgba(239, 68, 68, 0.8)',   // red
-                'rgba(59, 130, 246, 0.8)', // blue
-                'rgba(168, 85, 247, 0.8)', // purple
-                'rgba(236, 72, 153, 0.8)', // pink
-                'rgba(16, 185, 129, 0.8)', // green
-                'rgba(245, 158, 11, 0.8)', // orange
-                'rgba(34, 211, 238, 0.8)', // cyan
-                'rgba(251, 146, 60, 0.8)', // orange-400
-            ];
+            // 使用类别数据库中的颜色，如果没有则使用默认颜色
+            const getCategoryColor = (categoryName) => {
+                const category = allCategoriesForStats.find(c => c.name === categoryName);
+                return category?.color || '#64748b';
+            };
+
+            // 生成颜色数组（带透明度）
+            const backgroundColors = categoryStats.map(s => {
+                const color = getCategoryColor(s.category);
+                return hexToRgba(color, 0.85);
+            });
+            
+            const borderColors = categoryStats.map(s => {
+                const color = getCategoryColor(s.category);
+                return hexToRgba(color, 1);
+            });
+
+            // 获取主题颜色
+            const computedStyle = getComputedStyle(document.documentElement);
+            const bgMain = computedStyle.getPropertyValue('--bg-main').trim();
+            const textPrimary = computedStyle.getPropertyValue('--text-primary').trim();
+            const textSecondary = computedStyle.getPropertyValue('--text-secondary').trim();
+            const border = computedStyle.getPropertyValue('--border').trim();
 
             pieChartInstance = new Chart(ctx, {
                 type: 'pie',
@@ -2829,24 +3030,65 @@
                     labels: categoryStats.map(s => s.category),
                     datasets: [{
                         data: categoryStats.map(s => s.total),
-                        backgroundColor: colors.slice(0, categoryStats.length),
-                        borderColor: 'var(--bg-main)',
-                        borderWidth: 2
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 3,
+                        hoverBorderWidth: 4,
+                        hoverOffset: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
                     plugins: {
                         legend: {
                             position: 'right',
                             labels: {
-                                color: 'var(--text-primary)',
-                                padding: 15,
-                                font: { size: 13 }
+                                color: textPrimary,
+                                padding: 18,
+                                font: { 
+                                    size: 13,
+                                    weight: '500',
+                                    family: "'Noto Sans SC', sans-serif"
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map((label, i) => {
+                                            const value = data.datasets[0].data[i];
+                                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                            return {
+                                                text: `${label} (${percentage}%)`,
+                                                fillStyle: backgroundColors[i],
+                                                strokeStyle: borderColors[i],
+                                                lineWidth: 2,
+                                                hidden: false,
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
                             }
                         },
                         tooltip: {
+                            backgroundColor: bgMain,
+                            titleColor: textPrimary,
+                            bodyColor: textPrimary,
+                            borderColor: border,
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            usePointStyle: true,
                             callbacks: {
                                 label: function(context) {
                                     const label = context.label || '';
@@ -2875,6 +3117,42 @@
                 return;
             }
 
+            // 使用类别数据库中的颜色
+            const getCategoryColor = (categoryName) => {
+                const category = allCategoriesForStats.find(c => c.name === categoryName);
+                return category?.color || '#64748b';
+            };
+
+            // 生成渐变色数组
+            const createGradient = (ctx, color) => {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                const rgba = hexToRgba(color, 1);
+                gradient.addColorStop(0, hexToRgba(color, 0.9));
+                gradient.addColorStop(1, hexToRgba(color, 0.5));
+                return gradient;
+            };
+
+            // 获取主题颜色
+            const computedStyle = getComputedStyle(document.documentElement);
+            const bgMain = computedStyle.getPropertyValue('--bg-main').trim();
+            const bgCard = computedStyle.getPropertyValue('--bg-card').trim();
+            const textPrimary = computedStyle.getPropertyValue('--text-primary').trim();
+            const textSecondary = computedStyle.getPropertyValue('--text-secondary').trim();
+            const border = computedStyle.getPropertyValue('--border').trim();
+            const primary = computedStyle.getPropertyValue('--primary').trim();
+
+            // 为每个类别创建渐变
+            const chartCtx = ctx.getContext('2d');
+            const backgroundColors = categoryStats.map(s => {
+                const color = getCategoryColor(s.category);
+                return createGradient(chartCtx, color);
+            });
+            
+            const borderColors = categoryStats.map(s => {
+                const color = getCategoryColor(s.category);
+                return hexToRgba(color, 1);
+            });
+
             barChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -2882,22 +3160,41 @@
                     datasets: [{
                         label: '消费金额',
                         data: categoryStats.map(s => s.total),
-                        backgroundColor: 'rgba(37, 99, 235, 0.8)',
-                        borderColor: 'rgba(37, 99, 235, 1)',
-                        borderWidth: 1
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        barThickness: 'flex',
+                        maxBarThickness: 60
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeOutQuart'
+                    },
                     plugins: {
                         legend: {
                             display: false
                         },
                         tooltip: {
+                            backgroundColor: bgMain,
+                            titleColor: textPrimary,
+                            bodyColor: textPrimary,
+                            borderColor: border,
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            usePointStyle: true,
                             callbacks: {
                                 label: function(context) {
-                                    return '金额: ¥' + context.parsed.y.toFixed(2);
+                                    const value = context.parsed.y;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `金额: ¥${value.toFixed(2)} (${percentage}%)`;
                                 }
                             }
                         }
@@ -2906,23 +3203,49 @@
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                color: 'var(--text-secondary)',
+                                color: textSecondary,
+                                font: {
+                                    size: 12,
+                                    family: "'Noto Sans SC', sans-serif"
+                                },
                                 callback: function(value) {
                                     return '¥' + value.toFixed(0);
                                 }
                             },
                             grid: {
-                                color: 'var(--border)'
+                                color: border,
+                                lineWidth: 1,
+                                drawBorder: true,
+                                borderColor: border
+                            },
+                            border: {
+                                color: border,
+                                width: 1
                             }
                         },
                         x: {
                             ticks: {
-                                color: 'var(--text-secondary)'
+                                color: textSecondary,
+                                font: {
+                                    size: 12,
+                                    family: "'Noto Sans SC', sans-serif"
+                                }
                             },
                             grid: {
-                                color: 'var(--border)'
+                                display: false
+                            },
+                            border: {
+                                color: border,
+                                width: 1
                             }
                         }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    onHover: (event, activeElements) => {
+                        ctx.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
                 }
             });

@@ -23,6 +23,23 @@ func NewAdminHandler() *AdminHandler {
 	return &AdminHandler{}
 }
 
+// getCurrentUser 获取当前登录用户信息
+func getCurrentUser(c *gin.Context) (*models.User, error) {
+	userIDStr, err := c.Cookie("admin_user_id")
+	if err != nil {
+		return nil, err
+	}
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // AdminLoginRequest 管理员登录请求
 type AdminLoginRequest struct {
 	Username string `json:"username" binding:"required"`
@@ -53,6 +70,7 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 	// 设置 Cookie
 	c.SetCookie("admin_user_id", fmt.Sprintf("%d", user.ID), 86400, "/", "", false, true)
 	c.SetCookie("admin_username", user.Username, 86400, "/", "", false, false)
+	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, "/", "", false, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -60,6 +78,7 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 		"data": gin.H{
 			"user_id":  user.ID,
 			"username": user.Username,
+			"is_admin": user.IsAdmin,
 		},
 	})
 }
@@ -71,8 +90,15 @@ func (h *AdminHandler) AdminLogout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已退出登录"})
 }
 
-// GetAllExpenses 获取所有用户的消费记录（管理员）
+// GetAllExpenses 获取消费记录（管理员看全部，非管理员只看自己的）
 func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	page := 1
 	pageSize := 20
 	if p := c.Query("page"); p != "" {
@@ -86,10 +112,23 @@ func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
 	endTime := c.Query("end_time")
 	category := c.Query("category")
 	username := c.Query("username")
+	userIDFilter := c.Query("user_id") // 管理员可以按用户ID筛选
 
 	query := database.DB.Model(&models.Expense{}).
 		Select("expenses.*, users.username").
 		Joins("LEFT JOIN users ON expenses.user_id = users.id")
+
+	// 权限过滤：非管理员只能看自己的数据
+	if !currentUser.IsAdmin {
+		query = query.Where("expenses.user_id = ?", currentUser.ID)
+	} else {
+		// 管理员可以按用户ID筛选
+		if userIDFilter != "" {
+			if uid, err := strconv.ParseUint(userIDFilter, 10, 32); err == nil {
+				query = query.Where("expenses.user_id = ?", uint(uid))
+			}
+		}
+	}
 
 	// 筛选条件
 	if startTime != "" {
@@ -136,7 +175,21 @@ func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
 }
 
 // GetAllUsers 获取所有用户列表
+// GetAllUsers 获取所有用户（仅管理员）
 func (h *AdminHandler) GetAllUsers(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	// 只有管理员可以查看所有用户
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
 	var users []models.User
 	database.DB.Find(&users)
 
@@ -146,13 +199,187 @@ func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 	})
 }
 
+// UpdateUserPasswordRequest 更新用户密码请求
+type UpdateUserPasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+// UpdateUserPassword 更新用户密码（仅管理员）
+func (h *AdminHandler) UpdateUserPassword(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	// 只有管理员可以修改其他用户密码
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	var req UpdateUserPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	// 加密新密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "密码加密失败"})
+		return
+	}
+
+	user.Password = string(hashedPassword)
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "密码更新成功",
+	})
+}
+
+// DeleteUser 删除用户（仅管理员，软删除）
+func (h *AdminHandler) DeleteUser(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	// 只有管理员可以删除用户
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	// 不能删除自己
+	if uint(userID) == currentUser.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "不能删除自己的账号"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	if err := database.DB.Delete(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "用户删除成功",
+	})
+}
+
+// SetAdminRequest 设置管理员权限请求
+type SetAdminRequest struct {
+	IsAdmin bool `json:"is_admin"`
+}
+
+// SetAdmin 设置用户管理员权限（仅管理员）
+func (h *AdminHandler) SetAdmin(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	// 只有管理员可以设置其他用户的管理员权限
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	var req SetAdminRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	// 不能取消自己的管理员权限
+	if uint(userID) == currentUser.ID && !req.IsAdmin {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "不能取消自己的管理员权限"})
+		return
+	}
+
+	user.IsAdmin = req.IsAdmin
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "权限更新成功",
+		"data":    user,
+	})
+}
+
 // GetStatistics 获取统计数据
 func (h *AdminHandler) GetStatistics(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 
 	query := database.DB.Model(&models.Expense{})
 	incomeQuery := database.DB.Model(&models.Income{})
+
+	// 权限过滤：非管理员只能看自己的数据
+	if !currentUser.IsAdmin {
+		query = query.Where("user_id = ?", currentUser.ID)
+		incomeQuery = incomeQuery.Where("user_id = ?", currentUser.ID)
+	}
 
 	if startTime != "" {
 		if t, err := time.ParseInLocation("2006-01-02", startTime, time.Local); err == nil {
@@ -193,9 +420,11 @@ func (h *AdminHandler) GetStatistics(c *gin.Context) {
 		Order("total DESC").
 		Scan(&categoryStats)
 
-	// 用户数量
+	// 用户数量（仅管理员可见）
 	var userCount int64
-	database.DB.Model(&models.User{}).Count(&userCount)
+	if currentUser.IsAdmin {
+		database.DB.Model(&models.User{}).Count(&userCount)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -210,8 +439,15 @@ func (h *AdminHandler) GetStatistics(c *gin.Context) {
 	})
 }
 
-// GetDetailedStatistics 获取详细消费统计（管理员后台，支持月/年/自定义时间范围和多个类别筛选）
+// GetDetailedStatistics 获取详细消费统计（支持月/年/自定义时间范围和多个类别筛选）
 func (h *AdminHandler) GetDetailedStatistics(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	rangeType := c.Query("range_type")
 	if rangeType == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "range_type参数必填，可选值：month、year、custom"})
@@ -220,8 +456,19 @@ func (h *AdminHandler) GetDetailedStatistics(c *gin.Context) {
 
 	query := database.DB.Model(&models.Expense{})
 
+	// 权限过滤：非管理员只能看自己的数据
+	if !currentUser.IsAdmin {
+		query = query.Where("user_id = ?", currentUser.ID)
+	} else {
+		// 管理员可以按用户ID筛选
+		if userIDFilter := c.Query("user_id"); userIDFilter != "" {
+			if uid, err := strconv.ParseUint(userIDFilter, 10, 32); err == nil {
+				query = query.Where("user_id = ?", uint(uid))
+			}
+		}
+	}
+
 	var startTime, endTime time.Time
-	var err error
 
 	// 根据时间范围类型设置时间范围
 	switch rangeType {
@@ -314,6 +561,18 @@ func (h *AdminHandler) GetDetailedStatistics(c *gin.Context) {
 		Select("category, SUM(amount) as total, COUNT(*) as count").
 		Where("expense_time >= ? AND expense_time <= ?", startTime, endTime)
 
+	// 权限过滤：非管理员只能看自己的数据
+	if !currentUser.IsAdmin {
+		categoryQuery = categoryQuery.Where("user_id = ?", currentUser.ID)
+	} else {
+		// 管理员可以按用户ID筛选
+		if userIDFilter := c.Query("user_id"); userIDFilter != "" {
+			if uid, err := strconv.ParseUint(userIDFilter, 10, 32); err == nil {
+				categoryQuery = categoryQuery.Where("user_id = ?", uint(uid))
+			}
+		}
+	}
+
 	// 应用类别筛选
 	if categoriesStr != "" {
 		categories := strings.Split(categoriesStr, ",")
@@ -358,11 +617,24 @@ type AdminCreateExpenseRequest struct {
 	ExpenseTime string  `json:"expense_time" binding:"required"` // 格式: 2006-01-02 15:04:05
 }
 
-// CreateExpense 管理员创建消费记录
+// CreateExpense 创建消费记录
 func (h *AdminHandler) CreateExpense(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	var req AdminCreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	// 权限检查：非管理员只能为自己创建记录
+	if !currentUser.IsAdmin && req.UserID != currentUser.ID {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，只能为自己创建记录"})
 		return
 	}
 
@@ -374,8 +646,8 @@ func (h *AdminHandler) CreateExpense(c *gin.Context) {
 	}
 
 	// 解析时间
-	expenseTime, err := time.ParseInLocation("2006-01-02 15:04:05", req.ExpenseTime, time.Local)
-	if err != nil {
+	expenseTime, err2 := time.ParseInLocation("2006-01-02 15:04:05", req.ExpenseTime, time.Local)
+	if err2 != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "时间格式错误，应为: 2006-01-02 15:04:05"})
 		return
 	}
@@ -421,8 +693,15 @@ type AdminUpdateExpenseRequest struct {
 	ExpenseTime string  `json:"expense_time"` // 格式: 2006-01-02 15:04:05
 }
 
-// UpdateExpense 管理员更新消费记录
+// UpdateExpense 更新消费记录
 func (h *AdminHandler) UpdateExpense(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	idStr := c.Param("id")
 	var id uint
 	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
@@ -433,6 +712,12 @@ func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 	var expense models.Expense
 	if err := database.DB.First(&expense, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "记录不存在"})
+		return
+	}
+
+	// 权限检查：非管理员只能修改自己的记录
+	if !currentUser.IsAdmin && expense.UserID != currentUser.ID {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，只能修改自己的记录"})
 		return
 	}
 
@@ -487,8 +772,15 @@ func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 	})
 }
 
-// DeleteExpense 管理员删除消费记录
+// DeleteExpense 删除消费记录
 func (h *AdminHandler) DeleteExpense(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	idStr := c.Param("id")
 	var id uint
 	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
@@ -499,6 +791,12 @@ func (h *AdminHandler) DeleteExpense(c *gin.Context) {
 	var expense models.Expense
 	if err := database.DB.First(&expense, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "记录不存在"})
+		return
+	}
+
+	// 权限检查：非管理员只能删除自己的记录
+	if !currentUser.IsAdmin && expense.UserID != currentUser.ID {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，只能删除自己的记录"})
 		return
 	}
 
