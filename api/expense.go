@@ -319,11 +319,41 @@ func (h *ExpenseHandler) Delete(c *gin.Context) {
 
 // GetCategories 获取消费类别列表
 // @Summary 获取消费类别列表
-// @Description 获取所有可用的消费类别，返回完整的类别对象数组（包含ID、名称、排序等）
+// @Description 获取所有可用的消费类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。
+// @Description
+// @Description 返回的每个类别对象包含以下字段：
+// @Description - id (uint): 类别唯一标识符，主键
+// @Description - name (string): 类别名称，最大长度50字符，唯一索引，必填
+// @Description - sort (int): 排序值，用于控制类别显示顺序，值越小越靠前，默认值为0
+// @Description - created_at (time.Time): 创建时间，ISO 8601格式的时间字符串
+// @Description - updated_at (time.Time): 更新时间，ISO 8601格式的时间字符串
+// @Description
+// @Description 示例响应：
+// @Description {
+// @Description   "code": 200,
+// @Description   "message": "success",
+// @Description   "data": [
+// @Description     {
+// @Description       "id": 1,
+// @Description       "name": "餐饮",
+// @Description       "sort": 0,
+// @Description       "created_at": "2024-01-01T00:00:00Z",
+// @Description       "updated_at": "2024-01-01T00:00:00Z"
+// @Description     },
+// @Description     {
+// @Description       "id": 2,
+// @Description       "name": "交通",
+// @Description       "sort": 1,
+// @Description       "created_at": "2024-01-01T00:00:00Z",
+// @Description       "updated_at": "2024-01-01T00:00:00Z"
+// @Description     }
+// @Description   ]
+// @Description }
 // @Tags 消费记录
 // @Accept json
 // @Produce json
-// @Success 200 {object} Response{data=[]models.ExpenseCategory} "获取成功"
+// @Success 200 {object} Response{data=[]models.ExpenseCategory} "获取成功，返回类别列表数组"
+// @Failure 500 {object} Response "服务器内部错误，查询失败时返回错误信息"
 // @Router /api/v1/categories [get]
 func (h *ExpenseHandler) GetCategories(c *gin.Context) {
 	var list []models.ExpenseCategory

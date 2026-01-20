@@ -244,6 +244,19 @@ definitions:
       user_id:
         type: integer
     type: object
+  models.ExpenseCategory:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      sort:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   models.Income:
     properties:
       amount:
@@ -591,21 +604,55 @@ paths:
     get:
       consumes:
       - application/json
-      description: 获取所有可用的消费类别
+      description: |-
+        获取所有可用的消费类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。
+
+        返回的每个类别对象包含以下字段：
+        - id (uint): 类别唯一标识符，主键
+        - name (string): 类别名称，最大长度50字符，唯一索引，必填
+        - sort (int): 排序值，用于控制类别显示顺序，值越小越靠前，默认值为0
+        - created_at (time.Time): 创建时间，ISO 8601格式的时间字符串
+        - updated_at (time.Time): 更新时间，ISO 8601格式的时间字符串
+
+        示例响应：
+        {
+        "code": 200,
+        "message": "success",
+        "data": [
+        {
+        "id": 1,
+        "name": "餐饮",
+        "sort": 0,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+        },
+        {
+        "id": 2,
+        "name": "交通",
+        "sort": 1,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+        }
+        ]
+        }
       produces:
       - application/json
       responses:
         "200":
-          description: 获取成功
+          description: 获取成功，返回类别列表数组
           schema:
             allOf:
             - $ref: '#/definitions/api.Response'
             - properties:
                 data:
                   items:
-                    type: string
+                    $ref: '#/definitions/models.ExpenseCategory'
                   type: array
               type: object
+        "500":
+          description: 服务器内部错误，查询失败时返回错误信息
+          schema:
+            $ref: '#/definitions/api.Response'
       summary: 获取消费类别列表
       tags:
       - 消费记录

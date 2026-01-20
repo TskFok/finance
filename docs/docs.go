@@ -506,7 +506,7 @@ const docTemplate = `{
         },
         "/api/v1/categories": {
             "get": {
-                "description": "获取所有可用的消费类别",
+                "description": "获取所有可用的消费类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。\n\n返回的每个类别对象包含以下字段：\n- id (uint): 类别唯一标识符，主键\n- name (string): 类别名称，最大长度50字符，唯一索引，必填\n- sort (int): 排序值，用于控制类别显示顺序，值越小越靠前，默认值为0\n- created_at (time.Time): 创建时间，ISO 8601格式的时间字符串\n- updated_at (time.Time): 更新时间，ISO 8601格式的时间字符串\n\n示例响应：\n{\n\"code\": 200,\n\"message\": \"success\",\n\"data\": [\n{\n\"id\": 1,\n\"name\": \"餐饮\",\n\"sort\": 0,\n\"created_at\": \"2024-01-01T00:00:00Z\",\n\"updated_at\": \"2024-01-01T00:00:00Z\"\n},\n{\n\"id\": 2,\n\"name\": \"交通\",\n\"sort\": 1,\n\"created_at\": \"2024-01-01T00:00:00Z\",\n\"updated_at\": \"2024-01-01T00:00:00Z\"\n}\n]\n}",
                 "consumes": [
                     "application/json"
                 ],
@@ -519,7 +519,7 @@ const docTemplate = `{
                 "summary": "获取消费类别列表",
                 "responses": {
                     "200": {
-                        "description": "获取成功",
+                        "description": "获取成功，返回类别列表数组",
                         "schema": {
                             "allOf": [
                                 {
@@ -531,12 +531,18 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "type": "string"
+                                                "$ref": "#/definitions/models.ExpenseCategory"
                                             }
                                         }
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误，查询失败时返回错误信息",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
                         }
                     }
                 }
@@ -1725,6 +1731,26 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.ExpenseCategory": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
