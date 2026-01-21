@@ -124,6 +124,11 @@
             --glow-primary: 0 0 20px rgba(245, 158, 11, 0.5);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            /* 右上角工具栏安全区：避免遮挡页面头部按钮/徽章 */
+            --top-toolbar-safe-top: 64px;   /* 工具栏高度 + 间距 */
+            --top-toolbar-safe-right: 320px;/* 工具栏宽度 + 间距（桌面端） */
+        }
         body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg-main); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background-color 0.3s ease, color 0.3s ease; position: relative; }
         body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 20% 50%, rgba(37, 99, 235, 0.03) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%); pointer-events: none; z-index: 0; }
         .app-container, .main-content { position: relative; z-index: 1; }
@@ -138,7 +143,9 @@
         .form-group input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 15px; background: var(--bg-input); color: var(--text-primary); transition: all 0.3s ease; }
         .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); }
         .btn { padding: 14px 24px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-primary { background: var(--gradient-primary); color: white; width: 100%; position: relative; overflow: hidden; }
+        /* 默认按钮宽度自适应；登录页再单独设为 100% */
+        .btn-primary { background: var(--gradient-primary); color: white; width: auto; position: relative; overflow: hidden; }
+        .login-box .btn-primary { width: 100%; }
         .btn-primary::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
         .btn-primary:hover::before { left: 100%; }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--glow-primary); }
@@ -172,7 +179,8 @@
         .nav-item.active::after { content: ''; position: absolute; right: 12px; width: 4px; height: 60%; background: rgba(255,255,255,0.5); border-radius: 2px; }
         .nav-item svg { width: 20px; height: 20px; }
         /* 右上角工具栏 */
-        .top-toolbar { position: fixed; top: 18px; right: 18px; z-index: 1200; display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; box-shadow: var(--shadow); }
+        /* 右上角工具栏：层级低于 modal/drawer，避免盖住弹框；并通过安全区让页面头部内容不被遮挡 */
+        .top-toolbar { position: fixed; top: 18px; right: 18px; z-index: 900; display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; box-shadow: var(--shadow); }
         .user-info-compact { display: flex; align-items: center; gap: 10px; padding-right: 10px; border-right: 1px solid var(--border); }
         .user-avatar-compact { width: 36px; height: 36px; background: var(--gradient-primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: white; flex-shrink: 0; }
         .user-details-compact { display: flex; flex-direction: column; gap: 2px; }
@@ -218,8 +226,8 @@
         .user-role { font-size: 12px; color: var(--text-secondary); }
         .logout-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s ease; }
         .logout-btn:hover { background: var(--danger); color: white; }
-        .main-content { margin-left: 260px; padding: 32px; min-height: 100vh; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; position: relative; padding-bottom: 16px; }
+        .main-content { margin-left: 260px; padding: calc(32px + var(--top-toolbar-safe-top)) 32px 32px 32px; min-height: 100vh; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; position: relative; padding-bottom: 16px; padding-right: var(--top-toolbar-safe-right); }
         .page-header::after { content: ''; position: absolute; bottom: 0; left: 0; width: 60px; height: 3px; background: var(--gradient-primary); border-radius: 2px; }
         .page-title { font-size: 28px; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .page-subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
@@ -237,12 +245,20 @@
         .stat-label { color: var(--text-secondary); font-size: 14px; }
         .filter-bar { background: var(--bg-card); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border); position: relative; overflow: hidden; }
         .filter-bar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gradient-primary); opacity: 0.3; }
-        .filter-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        /* 筛选栏：桌面端保持同一行（超出时横向滚动），避免“查询/添加”被挤到下一行 */
+        .filter-row { display: flex; gap: 16px; flex-wrap: nowrap; align-items: flex-end; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+        .filter-row::-webkit-scrollbar { height: 6px; }
+        .filter-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+        .filter-row::-webkit-scrollbar-track { background: transparent; }
         .filter-item { flex: 1; min-width: 180px; }
         .filter-item label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
         .filter-item input, .filter-item select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: all 0.2s ease; }
         .filter-item input:focus, .filter-item select:focus { outline: none; border-color: var(--primary); }
-        .filter-actions { display: flex; gap: 12px; }
+        .filter-actions { display: flex; gap: 12px; flex: 0 0 auto; white-space: nowrap; }
+        .filter-actions .btn { white-space: nowrap; }
+        /* 筛选栏按钮：去掉全局 btn-primary 的 width:100% 影响，并缩小“查询”按钮 */
+        .filter-actions .btn { width: auto; padding: 10px 14px; font-size: 14px; border-radius: 10px; }
+        .filter-actions .btn.btn-primary { padding: 10px 12px; }
         .data-table-container { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; position: relative; }
         .data-table-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--gradient-primary); opacity: 0.5; }
         .data-table { width: 100%; border-collapse: collapse; }
@@ -286,7 +302,8 @@
         .modal-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
         .modal-actions .btn { flex: 1; }
-        .action-btns { display: flex; gap: 8px; }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .action-btns .btn { width: auto; padding: 8px 12px; font-size: 13px; border-radius: 10px; white-space: nowrap; }
         .email-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--success); color: white; margin-left: 8px; }
         .email-badge.disabled { background: var(--secondary); }
         .chat-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
@@ -321,6 +338,13 @@
         .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1999; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
         .drawer-overlay.show { opacity: 1; visibility: visible; }
         .category-checkbox-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; cursor: pointer; transition: all 0.2s; background: var(--bg-input); }
+
+        /* 响应式：窄屏下缩小工具栏，减少对页面头部的影响 */
+        @media (max-width: 1024px) {
+            :root { --top-toolbar-safe-right: 160px; --top-toolbar-safe-top: 72px; }
+            .user-details-compact { display: none; }
+            .user-info-compact { padding-right: 0; border-right: none; }
+        }
         .category-checkbox-item:hover { border-color: var(--primary); background: rgba(37, 99, 235, 0.1); }
         .category-checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
         .category-checkbox-item label { flex: 1; cursor: pointer; font-size: 14px; }
@@ -330,7 +354,7 @@
         .chat-input textarea:focus { outline: none; border-color: var(--primary); }
         @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } .chat-panel { min-height: 560px; } }
-        @media (max-width: 768px) { .sidebar { width: 100%; height: auto; position: relative; } .main-content { margin-left: 0; } .stats-grid { grid-template-columns: 1fr; } .filter-row { flex-direction: column; } .filter-item { width: 100%; } }
+        @media (max-width: 768px) { .sidebar { width: 100%; height: auto; position: relative; } .main-content { margin-left: 0; } .stats-grid { grid-template-columns: 1fr; } .filter-row { flex-direction: column; flex-wrap: nowrap; overflow-x: visible; } .filter-item { width: 100%; } }
     </style>
     <!-- Markdown 渲染：marked + DOMPurify（允许前端依赖） -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -487,7 +511,6 @@
             <div class="page-content" id="page-expenses">
                 <div class="page-header">
                     <div><h1 class="page-title">账单管理</h1><p class="page-subtitle">查看和管理所有用户的消费记录</p></div>
-                    <button class="btn btn-success" onclick="openExpenseModal()">➕ 添加记录</button>
                 </div>
                 <div class="filter-bar">
                     <div class="filter-row">
@@ -497,6 +520,7 @@
                         <div class="filter-item" id="filterUsernameItem" style="display: none;"><label>用户名</label><input type="text" id="filterUsername" placeholder="搜索用户名"></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadExpenses()">查询</button>
+                            <button class="btn btn-success" onclick="openExpenseModal()">添加记录</button>
                             <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
                         </div>
                     </div>
@@ -624,7 +648,19 @@
             <div class="page-content" id="page-categories">
                 <div class="page-header">
                     <div><h1 class="page-title">消费类别</h1><p class="page-subtitle">手动维护消费类别，供添加账单/筛选使用</p></div>
-                    <button class="btn btn-success" onclick="openCategoryModal()">➕ 添加类别</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;">
+                            <label>类别名称</label>
+                            <input type="text" id="categorySearchName" placeholder="搜索类别名称" oninput="renderCategoriesTable()">
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadCategories()">查询</button>
+                            <button class="btn btn-success" onclick="openCategoryModal()">添加类别</button>
+                            <button class="btn btn-secondary" onclick="resetCategorySearch()">重置</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="data-table-container">
                     <table class="data-table">
@@ -654,7 +690,6 @@
             <div class="page-content" id="page-incomes">
                 <div class="page-header">
                     <div><h1 class="page-title">收入</h1><p class="page-subtitle">查看和管理所有用户的收入记录</p></div>
-                    <button class="btn btn-success" onclick="openIncomeModal()">➕ 添加收入</button>
                 </div>
                 <div class="filter-bar">
                     <div class="filter-row">
@@ -664,6 +699,7 @@
                         <div class="filter-item"><label>用户名</label><input type="text" id="incomeFilterUsername" placeholder="搜索用户名"></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadIncomes()">查询</button>
+                            <button class="btn btn-success" onclick="openIncomeModal()">添加收入</button>
                             <button class="btn btn-secondary" onclick="resetIncomeFilters()">重置</button>
                         </div>
                     </div>
@@ -684,7 +720,14 @@
             <div class="page-content" id="page-ai-models">
                 <div class="page-header">
                     <div><h1 class="page-title">AI模型管理</h1><p class="page-subtitle">配置和管理AI模型，用于账单分析</p></div>
-                    <button class="btn btn-success" onclick="openAIModelModal()">➕ 添加模型</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadAIModels()">查询</button>
+                            <button class="btn btn-success" onclick="openAIModelModal()">添加模型</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="data-table-container">
                     <table class="data-table">
@@ -1249,9 +1292,9 @@
                 currentUsername = username;
                 isAdmin = isAdminStr === 'true';
                 showApp();
-                loadStatistics();
                 loadEmailConfig();
                 updateUIByPermission();
+                restoreLastPageAfterAuth();
             }
         }
 
@@ -1318,13 +1361,69 @@
                 item.addEventListener('click', () => {
                     const page = item.dataset.page;
                     switchPage(page);
-                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                    item.classList.add('active');
+                    setActiveNav(page);
                 });
             });
         }
 
+        const LAST_PAGE_KEY = 'app-last-page';
+
+        function isResetPasswordHash(hash) {
+            return (hash || '').includes('reset-password');
+        }
+
+        function normalizePageFromHash(hash) {
+            if (!hash) return '';
+            if (isResetPasswordHash(hash)) return '';
+            const s = hash.startsWith('#') ? hash.slice(1) : hash;
+            if (!s) return '';
+            // 仅取 ? 前面的部分
+            return s.split('?')[0].trim();
+        }
+
+        function isValidPage(page) {
+            if (!page) return false;
+            return !!document.getElementById(`page-${page}`);
+        }
+
+        function getRestorablePage() {
+            // 优先 hash（支持刷新/分享），其次 localStorage
+            const fromHash = normalizePageFromHash(window.location.hash);
+            const fromStorage = (localStorage.getItem(LAST_PAGE_KEY) || '').trim();
+            const candidate = fromHash || fromStorage;
+
+            if (!isValidPage(candidate)) return 'dashboard';
+            // 非管理员不能恢复到用户管理
+            if (!isAdmin && candidate === 'users') return 'dashboard';
+            return candidate;
+        }
+
+        function setActiveNav(page) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+            if (nav) nav.classList.add('active');
+        }
+
+        function restoreLastPageAfterAuth() {
+            const page = getRestorablePage();
+            switchPage(page, { persist: false });
+            setActiveNav(page);
+        }
+
         function switchPage(page) {
+            // 默认持久化当前页面，便于刷新恢复
+            // 允许内部调用时通过第二参关闭持久化，避免重复写入或干扰 reset-password hash
+            const opts = arguments.length > 1 ? arguments[1] : null;
+            const persist = !(opts && opts.persist === false);
+
+            if (persist) {
+                try { localStorage.setItem(LAST_PAGE_KEY, page); } catch (_) {}
+                if (!isResetPasswordHash(window.location.hash)) {
+                    // 避免污染重置密码 hash
+                    window.location.hash = `#${page}`;
+                }
+            }
+
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'dashboard') loadStatistics();
@@ -1640,14 +1739,26 @@
             renderCategoryOptions(document.getElementById('expenseCategory'), false);
         }
 
+        function resetCategorySearch() {
+            const input = document.getElementById('categorySearchName');
+            if (input) input.value = '';
+            renderCategoriesTable();
+        }
+
         function renderCategoriesTable() {
             const tbody = document.getElementById('categoriesTable');
             if (!tbody) return;
-            if (!allCategories || allCategories.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无类别</td></tr>';
+            const keyword = (document.getElementById('categorySearchName')?.value || '').trim().toLowerCase();
+            const list = (allCategories || []).filter(c => {
+                if (!keyword) return true;
+                const name = (c.name || '').toLowerCase();
+                return name.includes(keyword);
+            });
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">${keyword ? '未找到匹配的类别' : '暂无类别'}</td></tr>`;
                 return;
             }
-            tbody.innerHTML = allCategories.map(c => {
+            tbody.innerHTML = list.map(c => {
                 const color = c.color || '#64748b';
                 const escapedName = (c.name || '').replace(/'/g, "\\'");
                 return `
