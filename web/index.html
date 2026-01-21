@@ -138,6 +138,8 @@
         .login-box { background: var(--bg-card); padding: 48px; border-radius: 24px; box-shadow: var(--shadow); width: 100%; max-width: 420px; position: relative; z-index: 1; border: 1px solid var(--border); }
         .login-box h1 { text-align: center; margin-bottom: 8px; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary-light), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .login-box p { text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 14px; }
+        .login-alert { display: none; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.12); color: #fecaca; font-size: 13px; line-height: 1.4; }
+        .login-alert.show { display: block; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 14px; }
         .form-group input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 15px; background: var(--bg-input); color: var(--text-primary); transition: all 0.3s ease; }
@@ -375,6 +377,7 @@
                     <label>密码</label>
                     <input type="password" id="loginPassword" placeholder="请输入密码" required>
                 </div>
+                <div class="login-alert" id="loginLockedHint">账号已锁定，暂无法登录。请联系管理员将状态设置为“正常”。</div>
                 <button type="submit" class="btn btn-primary">登录系统</button>
             </form>
             <button class="link-btn" onclick="showForgotPassword()">忘记密码？</button>
@@ -638,7 +641,7 @@
                 </div>
                 <div class="data-table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>管理员</th><th>注册时间</th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>管理员</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
                         <tbody id="usersTable"></tbody>
                     </table>
                 </div>
@@ -1464,6 +1467,8 @@
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const lockedHint = document.getElementById('loginLockedHint');
+            if (lockedHint) lockedHint.classList.remove('show');
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             try {
@@ -1479,7 +1484,16 @@
                     showApp();
                     loadStatistics();
                     loadEmailConfig();
-                } else { showToast(data.message || '登录失败', 'error'); }
+                } else {
+                    const msg = data.message || '登录失败';
+                    const isLocked = res.status === 403 || msg.includes('锁定') || msg.toLowerCase().includes('locked');
+                    if (isLocked) {
+                        if (lockedHint) lockedHint.classList.add('show');
+                        showToast(msg, 'warning');
+                    } else {
+                        showToast(msg, 'error');
+                    }
+                }
             } catch (err) { showToast('网络错误', 'error'); }
         });
 
@@ -1597,29 +1611,55 @@
         function renderUsersTable(users) {
             const tbody = document.getElementById('usersTable');
             if (!users || users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
             } else {
                 const currentUserId = parseInt(getCookie('admin_user_id') || '0');
                 tbody.innerHTML = users.map(user => {
                     const isCurrentUser = user.id === currentUserId;
+                    const status = user.status || 'active';
+                    const statusText = status === 'active' ? '正常' : '锁定';
+                    const statusBadge = status === 'active'
+                        ? '<span class="badge badge-success">正常</span>'
+                        : '<span class="badge badge-danger">锁定</span>';
+                    const toggleText = status === 'active' ? '锁定' : '解锁';
+                    const nextStatus = status === 'active' ? 'locked' : 'active';
                     return `
                     <tr>
                         <td>${user.id}</td>
                         <td>${user.username}</td>
                         <td>${user.email || '<span style="color:var(--text-secondary)">未设置</span>'}</td>
                         <td>${user.is_admin ? '<span class="badge badge-success">是</span>' : '<span class="badge badge-secondary">否</span>'}</td>
+                        <td>${statusBadge}</td>
                         <td>${formatDateTime(user.created_at)}</td>
                         <td>
                             <div class="action-btns">
                                 <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">重置密码</button>
                                 ${!isCurrentUser ? `<button class="btn btn-danger btn-sm" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">删除</button>` : ''}
                                 ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
+                                ${!isCurrentUser ? `<button class="btn btn-secondary btn-sm" onclick="updateUserStatus(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${nextStatus}')">${toggleText}</button>` : ''}
                                 ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
                             </div>
                         </td>
                     </tr>
                 `;
                 }).join('');
+            }
+        }
+
+        async function updateUserStatus(userId, username, status) {
+            const actionText = status === 'active' ? '解锁' : '锁定';
+            if (!confirm(`确定要${actionText}用户「${username}」吗？`)) return;
+            try {
+                const res = await fetch(`/admin/users/${userId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json();
+                showToast(data.message || `${actionText}失败`, data.success ? 'success' : 'error');
+                if (data.success) loadUsers();
+            } catch (e) {
+                showToast(`${actionText}失败`, 'error');
             }
         }
 

@@ -59,6 +59,11 @@ func Init(cfg *config.Config) error {
 		return err
 	}
 
+	// 兼容历史数据：老版本没有 status 字段，默认设置为 active，避免升级后无法登录
+	_ = DB.Model(&models.User{}).
+		Where("status IS NULL OR status = ''").
+		Update("status", models.UserStatusActive).Error
+
 	// 初始化默认消费类别（仅当表为空时）
 	var catCount int64
 	DB.Model(&models.ExpenseCategory{}).Count(&catCount)

@@ -49,7 +49,7 @@ type LoginResponse struct {
 
 // Register 用户注册
 // @Summary 用户注册
-// @Description 创建新用户账号
+// @Description 创建新用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -84,6 +84,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Username: req.Username,
 		Password: string(hashedPassword),
 		Email:    req.Email,
+		Status:   models.UserStatusLocked,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -116,6 +117,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	var user models.User
 	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
 		Unauthorized(c, "用户名或密码错误")
+		return
+	}
+
+	// 仅正常用户可登录
+	if user.Status != models.UserStatusActive {
+		Error(c, http.StatusForbidden, "账号已锁定，请联系管理员解锁")
 		return
 	}
 
@@ -357,7 +364,7 @@ type RegisterWithVerificationRequest struct {
 
 // RegisterWithVerification 带邮箱验证的用户注册
 // @Summary 带邮箱验证的用户注册
-// @Description 需要先发送验证码，验证通过后创建用户账号
+// @Description 需要先发送验证码，验证通过后创建用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -415,6 +422,7 @@ func (h *AuthHandler) RegisterWithVerification(c *gin.Context) {
 		Username: req.Username,
 		Password: string(hashedPassword),
 		Email:    req.Email,
+		Status:   models.UserStatusLocked,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -613,4 +621,3 @@ func (h *AuthHandler) AppResetPassword(c *gin.Context) {
 
 	SuccessWithMessage(c, "密码重置成功，请使用新密码登录", nil)
 }
-

@@ -61,6 +61,12 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 		return
 	}
 
+	// 仅正常用户可登录
+	if user.Status != models.UserStatusActive {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "账号已锁定，请联系管理员解锁"})
+		return
+	}
+
 	// 验证密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户名或密码错误"})
@@ -307,6 +313,12 @@ type SetAdminRequest struct {
 	IsAdmin bool `json:"is_admin"`
 }
 
+// UpdateUserStatusRequest 更新用户状态请求
+type UpdateUserStatusRequest struct {
+	// Status 用户状态：active（正常）/ locked（锁定）
+	Status string `json:"status" binding:"required,oneof=active locked"`
+}
+
 // SetAdmin 设置用户管理员权限（仅管理员）
 func (h *AdminHandler) SetAdmin(c *gin.Context) {
 	// 获取当前用户
@@ -356,6 +368,78 @@ func (h *AdminHandler) SetAdmin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "权限更新成功",
+		"data":    user,
+	})
+}
+
+// UpdateUserStatus 更新用户状态（仅管理员）
+// @Summary 更新用户状态
+// @Description 管理员可将用户状态设置为 normal(active) 或 locked。只有 active 状态的用户可以登录。
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body UpdateUserStatusRequest true "状态信息"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id}/status [put]
+func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	// 只有管理员可以更新用户状态
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	// 不能锁定自己，避免自锁导致无法登录后台
+	if uint(userID) == currentUser.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "不能修改自己的状态"})
+		return
+	}
+
+	var req UpdateUserStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	status := strings.TrimSpace(req.Status)
+	if status != models.UserStatusActive && status != models.UserStatusLocked {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的状态，支持：active/locked"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	user.Status = status
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "状态更新成功",
 		"data":    user,
 	})
 }

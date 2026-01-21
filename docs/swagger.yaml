@@ -217,6 +217,17 @@ definitions:
       type:
         type: string
     type: object
+  api.UpdateUserStatusRequest:
+    properties:
+      status:
+        description: Status 用户状态：active（正常）/ locked（锁定）
+        enum:
+        - active
+        - locked
+        type: string
+    required:
+    - status
+    type: object
   api.VerifyEmailCodeRequest:
     properties:
       code:
@@ -300,6 +311,9 @@ definitions:
       is_admin:
         description: 是否为管理员
         type: boolean
+      status:
+        description: 用户状态：locked/active
+        type: string
       updated_at:
         type: string
       username:
@@ -312,6 +326,54 @@ info:
   title: 记账系统 API
   version: "1.0"
 paths:
+  /admin/users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 管理员可将用户状态设置为 normal(active) 或 locked。只有 active 状态的用户可以登录。
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateUserStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新用户状态
+      tags:
+      - 用户管理
   /api/v1/auth/login:
     post:
       consumes:
@@ -495,7 +557,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 创建新用户账号
+      description: 创建新用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。
       parameters:
       - description: 注册信息
         in: body
@@ -530,7 +592,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 需要先发送验证码，验证通过后创建用户账号
+      description: 需要先发送验证码，验证通过后创建用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。
       parameters:
       - description: 注册信息
         in: body

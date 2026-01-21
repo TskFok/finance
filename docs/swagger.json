@@ -9,6 +9,76 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/admin/users/{id}/status": {
+            "put": {
+                "description": "管理员可将用户状态设置为 normal(active) 或 locked。只有 active 状态的用户可以登录。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "更新用户状态",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "状态信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateUserStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "用户登录获取 JWT token",
@@ -298,7 +368,7 @@
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "创建新用户账号",
+                "description": "创建新用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。",
                 "consumes": [
                     "application/json"
                 ],
@@ -356,7 +426,7 @@
         },
         "/api/v1/auth/register-verified": {
             "post": {
-                "description": "需要先发送验证码，验证通过后创建用户账号",
+                "description": "需要先发送验证码，验证通过后创建用户账号。注意：新注册用户默认处于“锁定(locked)”状态，需要管理员在后台将状态改为“正常(active)”后才能登录。",
                 "consumes": [
                     "application/json"
                 ],
@@ -1829,6 +1899,22 @@
                 }
             }
         },
+        "api.UpdateUserStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "description": "Status 用户状态：active（正常）/ locked（锁定）",
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "locked"
+                    ]
+                }
+            }
+        },
         "api.VerifyEmailCodeRequest": {
             "type": "object",
             "required": [
@@ -1950,6 +2036,10 @@
                 "is_admin": {
                     "description": "是否为管理员",
                     "type": "boolean"
+                },
+                "status": {
+                    "description": "用户状态：locked/active",
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
