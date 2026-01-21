@@ -148,8 +148,14 @@ func (h *AIChatHandler) ChatStream(c *gin.Context) {
 			// 结束：写入数据库
 			msg := models.AIChatMessage{
 				AIModelID: req.ModelID,
-				UserText:  req.Message,
-				AIText:    aiText.String(),
+				UserID: func() uint {
+					if u, e := getCurrentUser(c); e == nil {
+						return u.ID
+					}
+					return 0
+				}(),
+				UserText: req.Message,
+				AIText:   aiText.String(),
 			}
 			_ = database.DB.Create(&msg).Error
 			writeSSEJSON(c, sseChatFrame{Type: "done"})
@@ -185,12 +191,205 @@ func (h *AIChatHandler) ChatStream(c *gin.Context) {
 	if finishedNormally {
 		msg := models.AIChatMessage{
 			AIModelID: req.ModelID,
+			UserID: func() uint {
+				if u, e := getCurrentUser(c); e == nil {
+					return u.ID
+				}
+				return 0
+			}(),
+			UserText: req.Message,
+			AIText:   aiText.String(),
+		}
+		_ = database.DB.Create(&msg).Error
+		writeSSEJSON(c, sseChatFrame{Type: "done"})
+	}
+}
+
+// chatStreamScoped App端：仅写入当前 user_id（聊天内容本身不依赖账单数据）
+func (h *AIChatHandler) chatStreamScoped(c *gin.Context, userID uint) {
+	var req AIChatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	// 读取模型配置（包含密钥）
+	var aiModel models.AIModel
+	if err := database.DB.First(&aiModel, req.ModelID).Error; err != nil {
+		NotFound(c, "AI模型不存在")
+		return
+	}
+
+	// SSE响应头
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	requestBody := map[string]interface{}{
+		"model": aiModel.Name,
+		"messages": []map[string]string{
+			{"role": "system", "content": "你是一个专业、友好、简洁的个人财务助手。请用中文回答。"},
+			{"role": "user", "content": req.Message},
+		},
+		"stream":      true,
+		"temperature": 0.7,
+	}
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: "构建请求失败"})
+		writeSSEJSON(c, sseChatFrame{Type: "done"})
+		return
+	}
+
+	httpReq, err := http.NewRequest("POST", strings.TrimRight(aiModel.BaseURL, "/")+"/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: "创建请求失败"})
+		writeSSEJSON(c, sseChatFrame{Type: "done"})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+aiModel.APIKey)
+
+	client := &http.Client{Timeout: 300 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: "请求AI服务失败: " + err.Error()})
+		writeSSEJSON(c, sseChatFrame{Type: "done"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: fmt.Sprintf("AI服务返回错误: %d %s", resp.StatusCode, string(body))})
+		writeSSEJSON(c, sseChatFrame{Type: "done"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	reader := bufio.NewReader(resp.Body)
+	var aiText strings.Builder
+	finishedNormally := false
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				finishedNormally = true
+				break
+			}
+			return
+		}
+
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		if !bytes.HasPrefix(line, []byte("data: ")) {
+			continue
+		}
+		data := bytes.TrimPrefix(line, []byte("data: "))
+		if string(data) == "[DONE]" {
+			finishedNormally = true
+			msg := models.AIChatMessage{
+				AIModelID: req.ModelID,
+				UserID:    userID,
+				UserText:  req.Message,
+				AIText:    aiText.String(),
+			}
+			_ = database.DB.Create(&msg).Error
+			writeSSEJSON(c, sseChatFrame{Type: "done"})
+			break
+		}
+
+		var streamData map[string]interface{}
+		if err := json.Unmarshal(data, &streamData); err != nil {
+			continue
+		}
+		content := ""
+		if choices, ok := streamData["choices"].([]interface{}); ok && len(choices) > 0 {
+			if choice, ok := choices[0].(map[string]interface{}); ok {
+				if delta, ok := choice["delta"].(map[string]interface{}); ok {
+					if v, ok := delta["content"].(string); ok {
+						content = v
+					}
+				}
+			}
+		}
+		if content == "" {
+			continue
+		}
+		aiText.WriteString(content)
+		writeSSEJSON(c, sseChatFrame{Type: "delta", Content: content})
+	}
+
+	if finishedNormally {
+		msg := models.AIChatMessage{
+			AIModelID: req.ModelID,
+			UserID:    userID,
 			UserText:  req.Message,
 			AIText:    aiText.String(),
 		}
 		_ = database.DB.Create(&msg).Error
 		writeSSEJSON(c, sseChatFrame{Type: "done"})
 	}
+}
+
+// chatHistoryScoped App端：按用户+模型分页返回（Response 结构）
+func (h *AIChatHandler) chatHistoryScoped(c *gin.Context, userID uint, requireUser bool) {
+	modelIDStr := c.Query("model_id")
+	if modelIDStr == "" {
+		BadRequest(c, "缺少 model_id")
+		return
+	}
+	modelID64, err := strconv.ParseUint(modelIDStr, 10, 32)
+	if err != nil {
+		BadRequest(c, "无效的 model_id")
+		return
+	}
+	modelID := uint(modelID64)
+
+	page := 1
+	pageSize := 20
+	if p := c.Query("page"); p != "" {
+		if v, e := strconv.Atoi(p); e == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if v, e := strconv.Atoi(ps); e == nil && v > 0 {
+			pageSize = v
+		}
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	query := database.DB.Model(&models.AIChatMessage{}).Where("ai_model_id = ?", modelID)
+	if requireUser {
+		query = query.Where("user_id = ?", userID)
+	}
+	var total int64
+	query.Count(&total)
+
+	var list []models.AIChatMessage
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+		InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+	Success(c, gin.H{
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"list":      list,
+	})
 }
 
 // ChatHistory 获取聊天历史（按模型分页）
@@ -281,5 +480,3 @@ func (h *AIChatHandler) DeleteChatHistory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})
 }
-
-

@@ -10,6 +10,7 @@ import (
 type AIChatMessage struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
 	AIModelID uint           `json:"ai_model_id" gorm:"index;not null"`
+	UserID    uint           `json:"user_id" gorm:"index;default:0"` // 发起聊天的用户ID（App端按用户隔离）
 	UserText  string         `json:"user_text" gorm:"type:text;not null"`
 	AIText    string         `json:"ai_text" gorm:"type:longtext;not null"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -21,5 +22,3 @@ type AIChatMessage struct {
 func (AIChatMessage) TableName() string {
 	return "ai_chat_messages"
 }
-
-

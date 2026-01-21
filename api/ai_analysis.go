@@ -68,27 +68,23 @@ func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	}
 
 	// 解析时间范围
-	startTime, err := time.ParseInLocation("2006-01-02", req.StartTime, time.Local)
+	startTime, endTime, err := parseDateRange(req.StartTime, req.EndTime)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "开始时间格式错误"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "时间格式错误"})
 		return
 	}
-
-	endTime, err := time.ParseInLocation("2006-01-02", req.EndTime, time.Local)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "结束时间格式错误"})
-		return
-	}
-	endTime = endTime.Add(24*time.Hour - time.Second)
 
 	// 查询消费记录
 	var expenses []ExpenseWithUser
-	if err := database.DB.Model(&models.Expense{}).
+	q := database.DB.Model(&models.Expense{}).
 		Select("expenses.*, users.username").
 		Joins("LEFT JOIN users ON expenses.user_id = users.id").
-		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", startTime, endTime).
-		Order("expenses.expense_time DESC").
-		Scan(&expenses).Error; err != nil {
+		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", startTime, endTime)
+	// Admin 端：如果是非管理员（cookie 登录），只分析自己的消费；管理员默认分析全局
+	if u, e := getCurrentUser(c); e == nil && !u.IsAdmin {
+		q = q.Where("expenses.user_id = ?", u.ID)
+	}
+	if err := q.Order("expenses.expense_time DESC").Scan(&expenses).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询消费记录失败"})
 		return
 	}
@@ -102,7 +98,11 @@ func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	prompt := h.buildAnalysisPrompt(expenses, req.StartTime, req.EndTime)
 
 	// 调用AI模型API（流式）
-	if err := h.callAIModelStreamAndStore(c, aiModel, req.StartTime, req.EndTime, prompt); err != nil {
+	uid := uint(0)
+	if u, e := getCurrentUser(c); e == nil {
+		uid = u.ID
+	}
+	if err := h.callAIModelStreamAndStore(c, aiModel, uid, req.StartTime, req.EndTime, prompt); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "AI分析失败: " + err.Error()})
 		return
 	}
@@ -166,7 +166,7 @@ func (h *AIAnalysisHandler) buildAnalysisPrompt(expenses []ExpenseWithUser, star
 }
 
 // callAIModelStreamAndStore 调用AI模型API（流式输出），并在结束后保存分析历史（软删除支持）
-func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel models.AIModel, startDate, endDate, prompt string) error {
+func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel models.AIModel, userID uint, startDate, endDate, prompt string) error {
 	// 设置SSE响应头
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -214,13 +214,13 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 
 	// 使用带缓冲的读取器，逐行读取
 	reader := bufio.NewReader(resp.Body)
-	
+
 	// 创建上下文用于检查客户端连接
 	ctx := c.Request.Context()
 
 	var out strings.Builder
 	finished := false
-	
+
 	for {
 		// 检查客户端是否断开连接（非阻塞检查）
 		select {
@@ -228,7 +228,7 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 			return fmt.Errorf("客户端断开连接")
 		default:
 		}
-		
+
 		// 设置读取超时，避免无限等待
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -239,7 +239,7 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 			}
 			return fmt.Errorf("读取流数据失败: %w", err)
 		}
-		
+
 		// 处理这一行
 		if len(line) == 0 {
 			continue
@@ -259,6 +259,7 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 	if finished {
 		his := models.AIAnalysisHistory{
 			AIModelID: aiModel.ID,
+			UserID:    userID,
 			StartDate: startDate,
 			EndDate:   endDate,
 			Result:    out.String(),
@@ -269,6 +270,100 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 	}
 
 	return nil
+}
+
+// analyzeExpensesScoped App端：仅分析当前用户的消费，并写入 user_id
+func (h *AIAnalysisHandler) analyzeExpensesScoped(c *gin.Context, userID uint) {
+	var req AnalysisRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	var aiModel models.AIModel
+	if err := database.DB.First(&aiModel, req.ModelID).Error; err != nil {
+		NotFound(c, "AI模型不存在")
+		return
+	}
+
+	startTime, endTime, err := parseDateRange(req.StartTime, req.EndTime)
+	if err != nil {
+		BadRequest(c, "时间格式错误")
+		return
+	}
+
+	var expenses []ExpenseWithUser
+	if err := database.DB.Model(&models.Expense{}).
+		Select("expenses.*, users.username").
+		Joins("LEFT JOIN users ON expenses.user_id = users.id").
+		Where("expenses.user_id = ?", userID).
+		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", startTime, endTime).
+		Order("expenses.expense_time DESC").
+		Scan(&expenses).Error; err != nil {
+		InternalError(c, "查询消费记录失败")
+		return
+	}
+	if len(expenses) == 0 {
+		BadRequest(c, "该时间范围内没有消费记录")
+		return
+	}
+
+	prompt := h.buildAnalysisPrompt(expenses, req.StartTime, req.EndTime)
+	if err := h.callAIModelStreamAndStore(c, aiModel, userID, req.StartTime, req.EndTime, prompt); err != nil {
+		InternalError(c, "AI分析失败: "+err.Error())
+		return
+	}
+}
+
+// listAnalysisHistoryScoped App端：按用户+模型分页返回（Response 结构）
+func (h *AIAnalysisHandler) listAnalysisHistoryScoped(c *gin.Context, userID uint, requireUser bool) {
+	modelIDStr := c.Query("model_id")
+	if modelIDStr == "" {
+		BadRequest(c, "缺少 model_id")
+		return
+	}
+	modelID64, err := strconv.ParseUint(modelIDStr, 10, 32)
+	if err != nil {
+		BadRequest(c, "无效的 model_id")
+		return
+	}
+	modelID := uint(modelID64)
+
+	page := 1
+	pageSize := 20
+	if p := c.Query("page"); p != "" {
+		if v, e := strconv.Atoi(p); e == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if v, e := strconv.Atoi(ps); e == nil && v > 0 {
+			pageSize = v
+		}
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	query := database.DB.Model(&models.AIAnalysisHistory{}).Where("ai_model_id = ?", modelID)
+	if requireUser {
+		query = query.Where("user_id = ?", userID)
+	}
+	var total int64
+	query.Count(&total)
+
+	var list []models.AIAnalysisHistory
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+		InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+	Success(c, gin.H{
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"list":      list,
+	})
 }
 
 // processAnalysisLineToJSON 解析上游SSE行，向前端输出 JSON 帧；返回增量文本与是否结束

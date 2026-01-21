@@ -10,6 +10,7 @@ import (
 type AIAnalysisHistory struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
 	AIModelID uint           `json:"ai_model_id" gorm:"index;not null"`
+	UserID    uint           `json:"user_id" gorm:"index;default:0"`     // 发起分析的用户ID（App端按用户隔离）
 	StartDate string         `json:"start_date" gorm:"size:10;not null"` // YYYY-MM-DD
 	EndDate   string         `json:"end_date" gorm:"size:10;not null"`   // YYYY-MM-DD
 	Result    string         `json:"result" gorm:"type:longtext;not null"`
@@ -22,5 +23,3 @@ type AIAnalysisHistory struct {
 func (AIAnalysisHistory) TableName() string {
 	return "ai_analysis_histories"
 }
-
-

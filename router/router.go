@@ -174,6 +174,20 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 				export.GET("/csv", exportHandler.ExportCSV)
 				export.GET("/json", exportHandler.ExportJSON)
 			}
+
+			// AI（供 App/前端使用，JWT，按用户隔离历史）
+			aiModelHandlerV1 := api.NewAIModelHandler()
+			authorized.GET("/ai-models", aiModelHandlerV1.ListAIModelsApp)
+
+			aiAnalysisHandlerV1 := api.NewAIAnalysisHandler()
+			authorized.POST("/ai-analysis", aiAnalysisHandlerV1.AnalyzeExpensesApp)
+			authorized.GET("/ai-analysis/history", aiAnalysisHandlerV1.ListAnalysisHistoryApp)
+			authorized.DELETE("/ai-analysis/history/:id", aiAnalysisHandlerV1.DeleteAnalysisHistoryApp)
+
+			aiChatHandlerV1 := api.NewAIChatHandler()
+			authorized.POST("/ai-chat", aiChatHandlerV1.ChatStreamApp)
+			authorized.GET("/ai-chat/history", aiChatHandlerV1.ChatHistoryApp)
+			authorized.DELETE("/ai-chat/history/:id", aiChatHandlerV1.DeleteChatHistoryApp)
 		}
 	}
 

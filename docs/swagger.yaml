@@ -1,5 +1,31 @@
 basePath: /
 definitions:
+  api.AIChatRequest:
+    properties:
+      message:
+        minLength: 1
+        type: string
+      model_id:
+        type: integer
+    required:
+    - message
+    - model_id
+    type: object
+  api.AnalysisRequest:
+    properties:
+      end_time:
+        example: "2024-12-31"
+        type: string
+      model_id:
+        type: integer
+      start_time:
+        example: "2024-01-01"
+        type: string
+    required:
+    - end_time
+    - model_id
+    - start_time
+    type: object
   api.AppRequestPasswordResetRequest:
     properties:
       email:
@@ -247,6 +273,21 @@ definitions:
     - email
     - type
     type: object
+  models.AIModel:
+    properties:
+      base_url:
+        description: 调用地址
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        description: 模型名称
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.Expense:
     properties:
       amount:
@@ -374,6 +415,238 @@ paths:
       summary: 更新用户状态
       tags:
       - 用户管理
+  /api/v1/ai-analysis:
+    post:
+      consumes:
+      - application/json
+      description: 选择时间范围与AI模型，对当前用户在该时间范围内的消费记录进行AI分析，SSE流式返回 JSON 帧（delta/done/error）。分析结束后会保存到历史记录。
+      parameters:
+      - description: 分析请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AnalysisRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}'
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "403":
+          description: 账号锁定或无权限
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: AI分析（流式）
+      tags:
+      - AI
+  /api/v1/ai-analysis/history:
+    get:
+      description: 获取当前用户的AI分析历史记录，按 model_id 分页返回（软删除不返回）。
+      parameters:
+      - description: AI模型ID
+        in: query
+        name: model_id
+        required: true
+        type: integer
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认20，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取AI分析历史
+      tags:
+      - AI
+  /api/v1/ai-analysis/history/{id}:
+    delete:
+      parameters:
+      - description: 历史记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除AI分析历史
+      tags:
+      - AI
+  /api/v1/ai-chat:
+    post:
+      consumes:
+      - application/json
+      description: 选择AI模型，与AI进行对话，SSE流式返回 JSON 帧（delta/done/error）。结束后保存聊天记录。
+      parameters:
+      - description: 聊天请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AIChatRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}'
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: AI聊天（流式）
+      tags:
+      - AI
+  /api/v1/ai-chat/history:
+    get:
+      description: 获取当前用户的AI聊天历史记录，按 model_id 分页返回（软删除不返回）。
+      parameters:
+      - description: AI模型ID
+        in: query
+        name: model_id
+        required: true
+        type: integer
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认20，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取AI聊天历史
+      tags:
+      - AI
+  /api/v1/ai-chat/history/{id}:
+    delete:
+      parameters:
+      - description: 聊天记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/api.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+        "403":
+          description: 无权限
+          schema:
+            $ref: '#/definitions/api.Response'
+        "404":
+          description: 记录不存在
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除AI聊天记录
+      tags:
+      - AI
+  /api/v1/ai-models:
+    get:
+      description: 获取系统可用的AI模型配置列表（不包含APIKey），用于前端选择模型。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.AIModel'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取AI模型列表
+      tags:
+      - AI
   /api/v1/auth/login:
     post:
       consumes:
