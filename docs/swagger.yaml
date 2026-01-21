@@ -86,6 +86,17 @@ definitions:
     - income_time
     - type
     type: object
+  api.IncomeExpenseSummaryResponse:
+    properties:
+      total_expense:
+        description: 支出总和
+        example: 123.45
+        type: number
+      total_income:
+        description: 收入总和
+        example: 5000
+        type: number
+    type: object
   api.LoginRequest:
     properties:
       password:
@@ -246,6 +257,9 @@ definitions:
     type: object
   models.ExpenseCategory:
     properties:
+      color:
+        description: '颜色代码，如 #ef4444'
+        type: string
       created_at:
         type: string
       id:
@@ -283,6 +297,9 @@ definitions:
         type: string
       id:
         type: integer
+      is_admin:
+        description: 是否为管理员
+        type: boolean
       updated_at:
         type: string
       username:
@@ -1234,6 +1251,39 @@ paths:
       summary: 更新收入
       tags:
       - 收入
+  /api/v1/statistics/summary:
+    get:
+      description: 按时间范围统计当前用户的支出总和与收入总和。不传 start_time/end_time 则统计全部时间。
+      parameters:
+      - description: 开始时间 (YYYY-MM-DD)，例如 2024-01-01
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)，例如 2024-12-31
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.IncomeExpenseSummaryResponse'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/api.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取支出/收入汇总
+      tags:
+      - 统计
 securityDefinitions:
   BearerAuth:
     in: header

@@ -1467,6 +1467,63 @@
                     }
                 }
             }
+        },
+        "/api/v1/statistics/summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "按时间范围统计当前用户的支出总和与收入总和。不传 start_time/end_time 则统计全部时间。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "统计"
+                ],
+                "summary": "获取支出/收入汇总",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "开始时间 (YYYY-MM-DD)，例如 2024-01-01",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间 (YYYY-MM-DD)，例如 2024-12-31",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/api.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/api.IncomeExpenseSummaryResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1586,6 +1643,21 @@
                 "type": {
                     "type": "string",
                     "example": "工资"
+                }
+            }
+        },
+        "api.IncomeExpenseSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "total_expense": {
+                    "description": "支出总和",
+                    "type": "number",
+                    "example": 123.45
+                },
+                "total_income": {
+                    "description": "收入总和",
+                    "type": "number",
+                    "example": 5000
                 }
             }
         },
@@ -1815,6 +1887,10 @@
         "models.ExpenseCategory": {
             "type": "object",
             "properties": {
+                "color": {
+                    "description": "颜色代码，如 #ef4444",
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1870,6 +1946,10 @@
                 },
                 "id": {
                     "type": "integer"
+                },
+                "is_admin": {
+                    "description": "是否为管理员",
+                    "type": "boolean"
                 },
                 "updated_at": {
                     "type": "string"

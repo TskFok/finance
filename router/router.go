@@ -58,6 +58,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.PUT("/expenses/:id", adminHandler.UpdateExpense)
 			adminAuth.DELETE("/expenses/:id", adminHandler.DeleteExpense)
 			adminAuth.GET("/expenses/detailed-statistics", adminHandler.GetDetailedStatistics)
+			// 支出/收入汇总（按时间，可选 user_id 仅管理员）
+			adminAuth.GET("/statistics/summary", adminHandler.AdminIncomeExpenseSummary)
 			categoryHandler := api.NewCategoryHandler()
 			adminAuth.GET("/categories", categoryHandler.List)
 			adminAuth.POST("/categories", categoryHandler.Create)
@@ -149,6 +151,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 				expenses.PUT("/:id", expenseHandler.Update)
 				expenses.DELETE("/:id", expenseHandler.Delete)
 			}
+
+			// 统计相关（支出/收入汇总）
+			authorized.GET("/statistics/summary", expenseHandler.GetIncomeExpenseSummary)
 
 			// 收入相关
 			incomeHandler := api.NewIncomeHandler()
