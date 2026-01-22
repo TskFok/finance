@@ -565,7 +565,7 @@
                         <div class="filter-item"><label>开始日期</label><input type="date" id="filterStartDate"></div>
                         <div class="filter-item"><label>结束日期</label><input type="date" id="filterEndDate"></div>
                         <div class="filter-item"><label>消费类别</label><select id="filterCategory"><option value="">全部类别</option></select></div>
-                        <div class="filter-item" id="filterUsernameItem" style="display: none;"><label>用户名</label><input type="text" id="filterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-item" id="filterUsernameItem" style="display: none;"><label>选择用户</label><select id="filterUserId" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">全部用户</option></select></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadExpenses()">查询</button>
                             <button class="btn btn-success" onclick="openExpenseModal()">添加记录</button>
@@ -756,7 +756,7 @@
                         <div class="filter-item"><label>开始日期</label><input type="date" id="incomeFilterStartDate"></div>
                         <div class="filter-item"><label>结束日期</label><input type="date" id="incomeFilterEndDate"></div>
                         <div class="filter-item" id="incomeFilterTypeItem" style="display: none;"><label>收入类型</label><input type="text" id="incomeFilterType" placeholder="例如：工资"></div>
-                        <div class="filter-item" id="incomeFilterUsernameItem" style="display: none;"><label>用户名</label><input type="text" id="incomeFilterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-item" id="incomeFilterUsernameItem" style="display: none;"><label>选择用户</label><select id="incomeFilterUserId" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">全部用户</option></select></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadIncomes()">查询</button>
                             <button class="btn btn-success" onclick="openIncomeModal()">添加收入</button>
@@ -1485,6 +1485,10 @@
             const filterUsernameItem = document.getElementById('filterUsernameItem');
             if (filterUsernameItem) {
                 filterUsernameItem.style.display = isAdmin ? 'block' : 'none';
+                // 如果是管理员，加载用户列表
+                if (isAdmin) {
+                    loadUsersForExpenses();
+                }
             }
             
             // 收入管理页面：根据权限显示/隐藏搜索框（仅管理员可见）
@@ -1495,6 +1499,10 @@
             }
             if (incomeFilterUsernameItem) {
                 incomeFilterUsernameItem.style.display = isAdmin ? 'block' : 'none';
+                // 如果是管理员，加载用户列表
+                if (isAdmin) {
+                    loadUsersForIncomes();
+                }
             }
             
             // 账单和收入添加/编辑：根据权限显示/隐藏用户选择
@@ -1637,11 +1645,11 @@
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'dashboard') loadStatistics();
-            else if (page === 'expenses') loadExpenses();
+            else if (page === 'expenses') { if (isAdmin) loadUsersForExpenses(); loadExpenses(); }
             else if (page === 'statistics') { initStatisticsPage(); }
             else if (page === 'users') loadUsers();
             else if (page === 'categories') loadCategories();
-            else if (page === 'incomes') { setDefaultIncomeDates(); loadIncomes(); }
+            else if (page === 'incomes') { if (isAdmin) loadUsersForIncomes(); setDefaultIncomeDates(); loadIncomes(); }
             else if (page === 'ai-models') loadAIModels();
             else if (page === 'ai-analysis') { 
                 loadAIModelsForAnalysis(); 
@@ -1770,11 +1778,16 @@
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
             const category = document.getElementById('filterCategory').value;
-            const username = document.getElementById('filterUsername').value;
+            // 使用user_id而不是username（仅管理员）
+            if (isAdmin) {
+                const userId = document.getElementById('filterUserId')?.value || '';
+                if (userId) {
+                    params.append('user_id', userId);
+                }
+            }
             if (startDate) params.append('start_time', startDate);
             if (endDate) params.append('end_time', endDate);
             if (category) params.append('category', category);
-            if (username) params.append('username', username);
             try {
                 const res = await fetch(`/admin/expenses?${params}`);
                 const data = await res.json();
@@ -1819,7 +1832,7 @@
         }
 
         function goToPage(page) { if (page < 1 || page > totalPages) return; currentPage = page; loadExpenses(); }
-        function resetFilters() { setDefaultDates(); document.getElementById('filterCategory').value = ''; document.getElementById('filterUsername').value = ''; currentPage = 1; loadExpenses(); }
+        function resetFilters() { setDefaultDates(); document.getElementById('filterCategory').value = ''; if (isAdmin) { const filterUserId = document.getElementById('filterUserId'); if (filterUserId) filterUserId.value = ''; } currentPage = 1; loadExpenses(); }
 
         async function loadUsers() {
             try {
@@ -2400,11 +2413,16 @@
             const startDate = document.getElementById('incomeFilterStartDate').value;
             const endDate = document.getElementById('incomeFilterEndDate').value;
             const type = document.getElementById('incomeFilterType').value;
-            const username = document.getElementById('incomeFilterUsername').value;
+            // 使用user_id而不是username（仅管理员）
+            if (isAdmin) {
+                const userId = document.getElementById('incomeFilterUserId')?.value || '';
+                if (userId) {
+                    params.append('user_id', userId);
+                }
+            }
             if (startDate) params.append('start_time', startDate);
             if (endDate) params.append('end_time', endDate);
             if (type) params.append('type', type);
-            if (username) params.append('username', username);
             try {
                 const res = await fetch(`/admin/incomes?${params}`);
                 const data = await res.json();
@@ -2453,7 +2471,10 @@
 
         function resetIncomeFilters() {
             document.getElementById('incomeFilterType').value = '';
-            document.getElementById('incomeFilterUsername').value = '';
+            if (isAdmin) {
+                const incomeFilterUserId = document.getElementById('incomeFilterUserId');
+                if (incomeFilterUserId) incomeFilterUserId.value = '';
+            }
             document.getElementById('incomeFilterStartDate').value = '';
             document.getElementById('incomeFilterEndDate').value = '';
             incomeCurrentPage = 1;
@@ -2948,6 +2969,52 @@
                 const data = await res.json();
                 if (data.success) {
                     const select = document.getElementById('statUserId');
+                    if (select) {
+                        select.innerHTML = '<option value="">全部用户</option>';
+                        (data.data || []).forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            option.textContent = user.username + (user.is_admin ? ' (管理员)' : '');
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('加载用户列表失败:', e);
+            }
+        }
+
+        // ===== 账单管理功能 =====
+        async function loadUsersForExpenses() {
+            if (!isAdmin) return; // 非管理员不需要加载用户列表
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('filterUserId');
+                    if (select) {
+                        select.innerHTML = '<option value="">全部用户</option>';
+                        (data.data || []).forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            option.textContent = user.username + (user.is_admin ? ' (管理员)' : '');
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('加载用户列表失败:', e);
+            }
+        }
+
+        // ===== 收入管理功能 =====
+        async function loadUsersForIncomes() {
+            if (!isAdmin) return; // 非管理员不需要加载用户列表
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('incomeFilterUserId');
                     if (select) {
                         select.innerHTML = '<option value="">全部用户</option>';
                         (data.data || []).forEach(user => {
