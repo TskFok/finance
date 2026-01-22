@@ -83,7 +83,7 @@ func (h *AIChatHandler) ChatStream(c *gin.Context) {
 			{"role": "user", "content": req.Message},
 		},
 		"stream":      true,
-		"temperature": 0.7,
+		"temperature": 0.3,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -243,7 +243,7 @@ func (h *AIChatHandler) chatStreamScoped(c *gin.Context, userID uint) {
 			{"role": "user", "content": req.Message},
 		},
 		"stream":      true,
-		"temperature": 0.7,
+		"temperature": 0.3,
 	}
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {

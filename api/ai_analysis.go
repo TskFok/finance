@@ -198,12 +198,14 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 	requestBody := map[string]interface{}{
 		"model": aiModel.Name, // 可以根据模型配置调整
 		"messages": []map[string]string{
+			{"role": "system", "content": "你是一个专业、友好、简洁的个人财务助手。请用中文回答。"},
 			{
 				"role":    "user",
 				"content": prompt,
 			},
 		},
-		"stream": true,
+		"stream":      true,
+		"temperature": 0.3,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
