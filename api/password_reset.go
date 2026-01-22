@@ -45,6 +45,16 @@ type AdminResetPasswordRequest struct {
 }
 
 // RequestPasswordReset 请求密码重置（发送邮件）
+// @Summary 请求密码重置
+// @Description 通过邮箱请求密码重置，系统会发送包含重置链接的邮件。为了安全，即使用户不存在也返回成功。
+// @Tags 后台管理-密码重置
+// @Accept json
+// @Produce json
+// @Param request body RequestResetRequest true "邮箱地址"
+// @Success 200 {object} map[string]interface{} "请求成功（无论用户是否存在）"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 500 {object} map[string]interface{} "邮件发送失败"
+// @Router /admin/password/request-reset [post]
 func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
 	var req RequestResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -115,6 +125,14 @@ func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
 }
 
 // VerifyResetToken 验证重置令牌
+// @Summary 验证重置令牌
+// @Description 验证密码重置令牌是否有效，返回关联的用户信息
+// @Tags 后台管理-密码重置
+// @Produce json
+// @Param token query string true "重置令牌"
+// @Success 200 {object} map[string]interface{} "令牌有效，返回用户信息"
+// @Failure 400 {object} map[string]interface{} "令牌无效、已使用或已过期"
+// @Router /admin/password/verify-token [get]
 func (h *PasswordResetHandler) VerifyResetToken(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
@@ -153,6 +171,15 @@ func (h *PasswordResetHandler) VerifyResetToken(c *gin.Context) {
 }
 
 // ResetPassword 重置密码
+// @Summary 重置密码
+// @Description 使用有效的重置令牌设置新密码
+// @Tags 后台管理-密码重置
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "重置密码信息"
+// @Success 200 {object} map[string]interface{} "密码重置成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或令牌无效"
+// @Router /admin/password/reset [post]
 func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -201,6 +228,16 @@ func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 }
 
 // AdminResetPassword 管理员直接重置用户密码
+// @Summary 管理员重置用户密码
+// @Description 管理员可以直接重置指定用户的密码，无需令牌
+// @Tags 后台管理-密码重置
+// @Accept json
+// @Produce json
+// @Param request body AdminResetPasswordRequest true "重置密码信息"
+// @Success 200 {object} map[string]interface{} "密码重置成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/password/admin-reset [post]
 func (h *PasswordResetHandler) AdminResetPassword(c *gin.Context) {
 	var req AdminResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -235,6 +272,17 @@ func (h *PasswordResetHandler) AdminResetPassword(c *gin.Context) {
 }
 
 // SendPasswordResetEmail 管理员发送密码重置邮件
+// @Summary 管理员发送密码重置邮件
+// @Description 管理员可以为指定用户发送密码重置邮件
+// @Tags 后台管理-密码重置
+// @Accept json
+// @Produce json
+// @Param request body map[string]interface{} true "用户ID" example({"user_id": 1})
+// @Success 200 {object} map[string]interface{} "邮件发送成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或用户未设置邮箱"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Failure 500 {object} map[string]interface{} "邮件发送失败"
+// @Router /admin/password/send-reset-email [post]
 func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
 	type SendEmailRequest struct {
 		UserID uint `json:"user_id" binding:"required"`
@@ -303,6 +351,12 @@ func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
 }
 
 // GetEmailConfig 获取邮件配置状态
+// @Summary 获取邮件配置状态
+// @Description 获取邮件服务配置信息（邮箱地址会被部分隐藏）
+// @Tags 后台管理-密码重置
+// @Produce json
+// @Success 200 {object} map[string]interface{} "获取成功，返回邮件配置信息"
+// @Router /admin/email-config [get]
 func (h *PasswordResetHandler) GetEmailConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -325,4 +379,3 @@ func maskEmail(email string) string {
 	}
 	return email[:2] + "****" + email[len(email)-4:]
 }
-

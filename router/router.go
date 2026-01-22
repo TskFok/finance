@@ -70,6 +70,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.DELETE("/users/:id", adminHandler.DeleteUser)
 			adminAuth.PUT("/users/:id/admin", adminHandler.SetAdmin)
 			adminAuth.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
+			adminAuth.POST("/users/impersonate", adminHandler.ImpersonateUser)
+			adminAuth.POST("/users/exit-impersonation", adminHandler.ExitImpersonation)
 			adminAuth.GET("/statistics", adminHandler.GetStatistics)
 			// 收入管理
 			adminAuth.GET("/incomes", adminHandler.GetAllIncomes)

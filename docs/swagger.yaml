@@ -11,6 +11,84 @@ definitions:
     - message
     - model_id
     type: object
+  api.AdminCreateExpenseRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      description:
+        type: string
+      expense_time:
+        description: '格式: 2006-01-02 15:04:05'
+        type: string
+      user_id:
+        type: integer
+    required:
+    - amount
+    - category
+    - expense_time
+    - user_id
+    type: object
+  api.AdminCreateIncomeRequest:
+    properties:
+      amount:
+        type: number
+      income_time:
+        description: "2006-01-02 15:04:05"
+        type: string
+      type:
+        type: string
+      user_id:
+        type: integer
+    required:
+    - amount
+    - income_time
+    - type
+    - user_id
+    type: object
+  api.AdminLoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  api.AdminResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 6
+        type: string
+      user_id:
+        type: integer
+    required:
+    - new_password
+    - user_id
+    type: object
+  api.AdminUpdateExpenseRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      description:
+        type: string
+      expense_time:
+        description: '格式: 2006-01-02 15:04:05'
+        type: string
+    type: object
+  api.AdminUpdateIncomeRequest:
+    properties:
+      amount:
+        type: number
+      income_time:
+        type: string
+      type:
+        type: string
+    type: object
   api.AnalysisRequest:
     properties:
       end_time:
@@ -21,6 +99,10 @@ definitions:
       start_time:
         example: "2024-01-01"
         type: string
+      user_id:
+        description: 可选，仅管理员可用，用于筛选指定用户的账单
+        example: 1
+        type: integer
     required:
     - end_time
     - model_id
@@ -63,6 +145,33 @@ definitions:
     - code
     - email
     type: object
+  api.CategoryCreateRequest:
+    properties:
+      color:
+        description: '颜色代码，如 #ef4444'
+        maxLength: 20
+        type: string
+      name:
+        maxLength: 50
+        minLength: 1
+        type: string
+      sort:
+        type: integer
+    required:
+    - name
+    type: object
+  api.CategoryUpdateRequest:
+    properties:
+      color:
+        maxLength: 20
+        type: string
+      name:
+        maxLength: 50
+        minLength: 1
+        type: string
+      sort:
+        type: integer
+    type: object
   api.ChangePasswordRequest:
     properties:
       new_password:
@@ -76,6 +185,25 @@ definitions:
     required:
     - new_password
     - old_password
+    type: object
+  api.CreateAIModelRequest:
+    properties:
+      api_key:
+        example: sk-...
+        minLength: 1
+        type: string
+      base_url:
+        example: https://api.openai.com/v1
+        type: string
+      name:
+        example: OpenAI GPT-4
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - api_key
+    - base_url
+    - name
     type: object
   api.CreateExpenseRequest:
     properties:
@@ -111,6 +239,13 @@ definitions:
     - amount
     - income_time
     - type
+    type: object
+  api.ImpersonateUserRequest:
+    properties:
+      user_id:
+        type: integer
+    required:
+    - user_id
     type: object
   api.IncomeExpenseSummaryResponse:
     properties:
@@ -195,6 +330,24 @@ definitions:
     - password
     - username
     type: object
+  api.RequestResetRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  api.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 6
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
   api.Response:
     properties:
       code:
@@ -219,6 +372,23 @@ definitions:
     - email
     - type
     type: object
+  api.SetAdminRequest:
+    properties:
+      is_admin:
+        type: boolean
+    type: object
+  api.UpdateAIModelRequest:
+    properties:
+      api_key:
+        minLength: 1
+        type: string
+      base_url:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+    type: object
   api.UpdateExpenseRequest:
     properties:
       amount:
@@ -242,6 +412,14 @@ definitions:
         type: string
       type:
         type: string
+    type: object
+  api.UpdateUserPasswordRequest:
+    properties:
+      new_password:
+        minLength: 6
+        type: string
+    required:
+    - new_password
     type: object
   api.UpdateUserStatusRequest:
     properties:
@@ -367,6 +545,1312 @@ info:
   title: 记账系统 API
   version: "1.0"
 paths:
+  /admin/ai-analysis:
+    post:
+      consumes:
+      - application/json
+      description: 选择时间范围和AI模型，对消费记录进行AI分析，SSE流式返回JSON帧（delta/done/error）。管理员可分析所有记录或指定用户的记录（通过user_id参数），非管理员只能分析自己的记录。分析结束后会保存到历史记录。
+      parameters:
+      - description: 分析请求（user_id字段仅管理员可用）
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AnalysisRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}'
+          schema:
+            type: string
+        "400":
+          description: 参数错误或该时间范围内没有消费记录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: AI模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: AI分析消费记录（流式）
+      tags:
+      - 后台管理-AI分析
+  /admin/ai-analysis/history:
+    get:
+      description: 获取AI分析历史记录，按model_id分页返回（软删除不返回）
+      parameters:
+      - description: AI模型ID
+        in: query
+        name: model_id
+        required: true
+        type: integer
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认20，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回分页数据
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取AI分析历史
+      tags:
+      - 后台管理-AI分析
+  /admin/ai-analysis/history/{id}:
+    delete:
+      description: 软删除指定的AI分析历史记录
+      parameters:
+      - description: 历史记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除AI分析历史
+      tags:
+      - 后台管理-AI分析
+  /admin/ai-chat:
+    post:
+      consumes:
+      - application/json
+      description: 选择AI模型，与AI进行对话，SSE流式返回JSON帧（delta/done/error）。结束后保存聊天记录。
+      parameters:
+      - description: 聊天请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AIChatRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}'
+          schema:
+            type: string
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: AI模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: AI聊天（流式）
+      tags:
+      - 后台管理-AI聊天
+  /admin/ai-chat/history:
+    get:
+      description: 获取AI聊天历史记录，按model_id分页返回（软删除不返回）
+      parameters:
+      - description: AI模型ID
+        in: query
+        name: model_id
+        required: true
+        type: integer
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认20，最大100
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回分页数据
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取AI聊天历史
+      tags:
+      - 后台管理-AI聊天
+  /admin/ai-chat/history/{id}:
+    delete:
+      description: 软删除指定的AI聊天记录
+      parameters:
+      - description: 聊天记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除AI聊天记录
+      tags:
+      - 后台管理-AI聊天
+  /admin/ai-models:
+    get:
+      description: 获取系统中所有AI模型配置列表（不包含APIKey）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回模型列表
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取AI模型列表
+      tags:
+      - 后台管理-AI模型
+    post:
+      consumes:
+      - application/json
+      description: 创建新的AI模型配置，包括名称、API地址和密钥
+      parameters:
+      - description: AI模型信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateAIModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或模型名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建AI模型
+      tags:
+      - 后台管理-AI模型
+  /admin/ai-models/{id}:
+    delete:
+      description: 删除指定的AI模型配置（软删除）
+      parameters:
+      - description: AI模型ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除AI模型
+      tags:
+      - 后台管理-AI模型
+    get:
+      description: 根据ID获取AI模型配置详情（不包含APIKey）
+      parameters:
+      - description: AI模型ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取单个AI模型
+      tags:
+      - 后台管理-AI模型
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的AI模型配置信息
+      parameters:
+      - description: AI模型ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的模型信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateAIModelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或模型名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新AI模型
+      tags:
+      - 后台管理-AI模型
+  /admin/categories:
+    get:
+      description: 获取所有消费类别列表，支持按名称模糊搜索
+      parameters:
+      - description: 类别名称（模糊匹配）
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回类别列表
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取消费类别列表
+      tags:
+      - 后台管理-消费类别
+    post:
+      consumes:
+      - application/json
+      description: 创建新的消费类别，支持设置名称、排序和颜色
+      parameters:
+      - description: 类别信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CategoryCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建消费类别
+      tags:
+      - 后台管理-消费类别
+  /admin/categories/{id}:
+    delete:
+      description: 软删除指定的消费类别
+      parameters:
+      - description: 类别ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除消费类别
+      tags:
+      - 后台管理-消费类别
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的消费类别信息
+      parameters:
+      - description: 类别ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的类别信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CategoryUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新消费类别
+      tags:
+      - 后台管理-消费类别
+  /admin/email-config:
+    get:
+      description: 获取邮件服务配置信息（邮箱地址会被部分隐藏）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回邮件配置信息
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取邮件配置状态
+      tags:
+      - 后台管理-密码重置
+  /admin/expenses:
+    get:
+      description: 获取消费记录列表，支持分页、时间范围、类别、用户名筛选。管理员可查看所有记录并可按用户ID筛选，非管理员只能查看自己的记录。
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      - description: 开始时间 (YYYY-MM-DD)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)
+        in: query
+        name: end_time
+        type: string
+      - description: 类别筛选
+        in: query
+        name: category
+        type: string
+      - description: 用户名筛选（模糊匹配）
+        in: query
+        name: username
+        type: string
+      - description: 用户ID筛选（仅管理员可用）
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回分页数据
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取消费记录列表
+      tags:
+      - 后台管理-消费记录
+    post:
+      consumes:
+      - application/json
+      description: 创建一条新的消费记录。管理员可以为任何用户创建，非管理员只能为自己创建。
+      parameters:
+      - description: 消费记录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminCreateExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建消费记录
+      tags:
+      - 后台管理-消费记录
+  /admin/expenses/{id}:
+    delete:
+      description: 删除指定的消费记录（软删除）。管理员可以删除任何记录，非管理员只能删除自己的记录。
+      parameters:
+      - description: 消费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除消费记录
+      tags:
+      - 后台管理-消费记录
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的消费记录。管理员可以更新任何记录，非管理员只能更新自己的记录。
+      parameters:
+      - description: 消费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的消费记录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminUpdateExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新消费记录
+      tags:
+      - 后台管理-消费记录
+  /admin/expenses/detailed-statistics:
+    get:
+      description: 获取详细的消费统计数据，支持按月、按年或自定义时间范围统计，支持多个类别筛选。管理员可按用户ID筛选，非管理员只能查看自己的数据。
+      parameters:
+      - description: 时间范围类型：month(按月)、year(按年)、custom(自定义)
+        in: query
+        name: range_type
+        required: true
+        type: string
+      - description: 当range_type=month时必填，格式：2024-01
+        in: query
+        name: year_month
+        type: string
+      - description: 当range_type=year时必填，格式：2024
+        in: query
+        name: year
+        type: string
+      - description: 当range_type=custom时必填，格式：2024-01-01
+        in: query
+        name: start_time
+        type: string
+      - description: 当range_type=custom时必填，格式：2024-12-31
+        in: query
+        name: end_time
+        type: string
+      - description: 类别筛选，多个类别用逗号分隔，如：餐饮,交通
+        in: query
+        name: categories
+        type: string
+      - description: 用户ID筛选（仅管理员可用）
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，包含总金额、总记录数、类别统计等
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取详细消费统计
+      tags:
+      - 后台管理-统计
+  /admin/export/excel:
+    get:
+      description: 根据时间范围导出消费记录为Excel文件
+      parameters:
+      - description: 开始时间 (YYYY-MM-DD)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: Excel文件
+          schema:
+            type: file
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 导出消费记录为Excel
+      tags:
+      - 后台管理-导出
+  /admin/incomes:
+    get:
+      description: 获取收入记录列表，支持分页、时间范围、类型、用户名筛选。管理员可查看所有记录并可按用户ID筛选，非管理员只能查看自己的记录。
+      parameters:
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量，默认20
+        in: query
+        name: page_size
+        type: integer
+      - description: 开始时间 (YYYY-MM-DD)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)
+        in: query
+        name: end_time
+        type: string
+      - description: 收入类型筛选
+        in: query
+        name: type
+        type: string
+      - description: 用户名筛选（模糊匹配）
+        in: query
+        name: username
+        type: string
+      - description: 用户ID筛选（仅管理员可用）
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回分页数据
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取收入记录列表
+      tags:
+      - 后台管理-收入管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一条新的收入记录。管理员可以为任何用户创建，非管理员只能为自己创建。
+      parameters:
+      - description: 收入信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminCreateIncomeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或时间格式错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建收入记录
+      tags:
+      - 后台管理-收入管理
+  /admin/incomes/{id}:
+    delete:
+      description: 删除指定的收入记录（软删除）。管理员可以删除任何记录，非管理员只能删除自己的记录。
+      parameters:
+      - description: 收入记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除收入记录
+      tags:
+      - 后台管理-收入管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的收入记录。管理员可以更新任何记录，非管理员只能更新自己的记录。
+      parameters:
+      - description: 收入记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的收入信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminUpdateIncomeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或时间格式错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 记录不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新收入记录
+      tags:
+      - 后台管理-收入管理
+  /admin/login:
+    post:
+      consumes:
+      - application/json
+      description: 管理员使用用户名和密码登录，登录成功后设置 Cookie。只有状态为 active 的用户可以登录。
+      parameters:
+      - description: 登录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回用户信息
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 用户名或密码错误
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 账号已锁定
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 管理员登录
+      tags:
+      - 后台管理
+  /admin/logout:
+    post:
+      description: 清除登录 Cookie，退出登录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 退出成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 管理员退出登录
+      tags:
+      - 后台管理
+  /admin/password/admin-reset:
+    post:
+      consumes:
+      - application/json
+      description: 管理员可以直接重置指定用户的密码，无需令牌
+      parameters:
+      - description: 重置密码信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AdminResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 密码重置成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 管理员重置用户密码
+      tags:
+      - 后台管理-密码重置
+  /admin/password/request-reset:
+    post:
+      consumes:
+      - application/json
+      description: 通过邮箱请求密码重置，系统会发送包含重置链接的邮件。为了安全，即使用户不存在也返回成功。
+      parameters:
+      - description: 邮箱地址
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RequestResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 请求成功（无论用户是否存在）
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 邮件发送失败
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 请求密码重置
+      tags:
+      - 后台管理-密码重置
+  /admin/password/reset:
+    post:
+      consumes:
+      - application/json
+      description: 使用有效的重置令牌设置新密码
+      parameters:
+      - description: 重置密码信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 密码重置成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或令牌无效
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 重置密码
+      tags:
+      - 后台管理-密码重置
+  /admin/password/send-reset-email:
+    post:
+      consumes:
+      - application/json
+      description: 管理员可以为指定用户发送密码重置邮件
+      parameters:
+      - description: 用户ID
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 邮件发送成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或用户未设置邮箱
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 邮件发送失败
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 管理员发送密码重置邮件
+      tags:
+      - 后台管理-密码重置
+  /admin/password/verify-token:
+    get:
+      description: 验证密码重置令牌是否有效，返回关联的用户信息
+      parameters:
+      - description: 重置令牌
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 令牌有效，返回用户信息
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 令牌无效、已使用或已过期
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 验证重置令牌
+      tags:
+      - 后台管理-密码重置
+  /admin/statistics:
+    get:
+      description: 获取支出和收入的统计数据，包括总金额、总记录数、类别统计等。管理员可查看所有数据，非管理员只能查看自己的数据。
+      parameters:
+      - description: 开始时间 (YYYY-MM-DD)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取统计数据
+      tags:
+      - 后台管理-统计
+  /admin/statistics/summary:
+    get:
+      description: 按时间范围统计支出总和与收入总和。管理员可传user_id统计指定用户，非管理员只能统计自己的数据（忽略user_id）。不传start_time/end_time则统计全部时间。
+      parameters:
+      - description: 开始时间 (YYYY-MM-DD)，例如 2024-01-01
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (YYYY-MM-DD)，例如 2024-12-31
+        in: query
+        name: end_time
+        type: string
+      - description: 用户ID（仅管理员可用）
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回支出总和和收入总和
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取支出/收入汇总（后台）
+      tags:
+      - 后台管理-统计
+  /admin/users:
+    get:
+      description: 获取系统中所有用户列表（包含软删除的用户）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回用户列表
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取用户列表
+      tags:
+      - 后台管理-用户管理
+  /admin/users/{id}:
+    delete:
+      description: 管理员可以删除用户（软删除），不能删除自己
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 不能删除自己
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除用户
+      tags:
+      - 后台管理-用户管理
+  /admin/users/{id}/admin:
+    put:
+      consumes:
+      - application/json
+      description: 管理员可以设置或取消其他用户的管理员权限，不能取消自己的管理员权限
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 管理员权限设置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.SetAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 不能取消自己的管理员权限
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 设置管理员权限
+      tags:
+      - 后台管理-用户管理
+  /admin/users/{id}/password:
+    put:
+      consumes:
+      - application/json
+      description: 管理员可以修改指定用户的密码
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 新密码
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateUserPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新用户密码
+      tags:
+      - 后台管理-用户管理
   /admin/users/{id}/status:
     put:
       consumes:
@@ -415,6 +1899,68 @@ paths:
       summary: 更新用户状态
       tags:
       - 用户管理
+  /admin/users/exit-impersonation:
+    post:
+      description: 退出模拟登录，恢复原始管理员身份
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 退出模拟成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录或未在模拟状态
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 退出模拟登录
+      tags:
+      - 后台管理-用户管理
+  /admin/users/impersonate:
+    post:
+      consumes:
+      - application/json
+      description: 管理员可以模拟登录非管理员用户，用于查看用户视角。不能模拟其他管理员。模拟登录后，原始管理员信息会保存在 Cookie 中，可以通过退出模拟恢复。
+      parameters:
+      - description: 用户ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ImpersonateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 模拟登录成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足或不能模拟管理员
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 模拟登录用户
+      tags:
+      - 后台管理-用户管理
   /api/v1/ai-analysis:
     post:
       consumes:

@@ -64,8 +64,16 @@ func (h *ExpenseHandler) GetIncomeExpenseSummary(c *gin.Context) {
 }
 
 // AdminIncomeExpenseSummary 获取支出和收入汇总（后台，Cookie）
-// - 管理员：可传 user_id 统计指定用户
-// - 非管理员：只能统计自己的数据（忽略 user_id）
+// @Summary 获取支出/收入汇总（后台）
+// @Description 按时间范围统计支出总和与收入总和。管理员可传user_id统计指定用户，非管理员只能统计自己的数据（忽略user_id）。不传start_time/end_time则统计全部时间。
+// @Tags 后台管理-统计
+// @Produce json
+// @Param start_time query string false "开始时间 (YYYY-MM-DD)，例如 2024-01-01"
+// @Param end_time query string false "结束时间 (YYYY-MM-DD)，例如 2024-12-31"
+// @Param user_id query int false "用户ID（仅管理员可用）"
+// @Success 200 {object} map[string]interface{} "获取成功，返回支出总和和收入总和"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/statistics/summary [get]
 func (h *AdminHandler) AdminIncomeExpenseSummary(c *gin.Context) {
 	currentUser, err := getCurrentUser(c)
 	if err != nil {

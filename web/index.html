@@ -18,6 +18,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --bg-main: #0f172a;
             --bg-card: #1e293b;
             --bg-input: #334155;
@@ -41,6 +42,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --bg-main: #f8fafc;
             --bg-card: #ffffff;
             --bg-input: #f1f5f9;
@@ -64,6 +66,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --bg-main: #1a0b2e;
             --bg-card: #2d1b3d;
             --bg-input: #3d2a4d;
@@ -87,6 +90,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --bg-main: #0a1f1a;
             --bg-card: #1a2e28;
             --bg-input: #2a3f38;
@@ -110,6 +114,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --info: #3b82f6;
             --bg-main: #1f1a0f;
             --bg-card: #2e2518;
             --bg-input: #3d3221;
@@ -165,6 +170,10 @@
         .btn-danger::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
         .btn-danger:hover::before { left: 100%; }
         .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(239, 68, 68, 0.35); }
+        .btn-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; position: relative; overflow: hidden; }
+        .btn-info::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
+        .btn-info:hover::before { left: 100%; }
+        .btn-info:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35); }
         .btn-sm { padding: 8px 16px; font-size: 13px; }
         .link-btn { background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 14px; text-decoration: underline; margin-top: 16px; display: block; text-align: center; }
         .link-btn:hover { color: var(--primary); }
@@ -228,7 +237,7 @@
         .user-role { font-size: 12px; color: var(--text-secondary); }
         .logout-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s ease; }
         .logout-btn:hover { background: var(--danger); color: white; }
-        .main-content { margin-left: 260px; padding: calc(32px + var(--top-toolbar-safe-top)) 32px 32px 32px; min-height: 100vh; }
+        .main-content { margin-left: 260px; padding: calc(32px + var(--top-toolbar-safe-top)) 32px 32px 32px; min-height: 100vh; overflow: visible; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; position: relative; padding-bottom: 16px; padding-right: var(--top-toolbar-safe-right); }
         .page-header::after { content: ''; position: absolute; bottom: 0; left: 0; width: 60px; height: 3px; background: var(--gradient-primary); border-radius: 2px; }
         .page-title { font-size: 28px; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
@@ -261,15 +270,28 @@
         /* 筛选栏按钮：去掉全局 btn-primary 的 width:100% 影响，并缩小“查询”按钮 */
         .filter-actions .btn { width: auto; padding: 10px 14px; font-size: 14px; border-radius: 10px; }
         .filter-actions .btn.btn-primary { padding: 10px 12px; }
-        .data-table-container { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; position: relative; }
+        .data-table-container { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); position: relative; overflow: visible; }
+        .data-table-container .data-table { overflow: visible; }
+        /* 确保表格单元格可以显示下拉菜单 */
+        .data-table td { overflow: visible; position: relative; }
+        /* 确保操作列的下拉菜单不被裁剪 */
+        .data-table td:last-child { overflow: visible; }
         .data-table-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--gradient-primary); opacity: 0.5; }
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th { background: var(--bg-input); padding: 16px 20px; text-align: left; font-weight: 600; font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; position: relative; }
         .data-table th::after { content: ''; position: absolute; bottom: 0; left: 20px; right: 20px; height: 2px; background: var(--gradient-primary); opacity: 0.3; }
         .data-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.2s ease; }
         .data-table tr:last-child td { border-bottom: none; }
-        .data-table tr { transition: all 0.2s ease; }
-        .data-table tr:hover td { background: rgba(37, 99, 235, 0.08); transform: scale(1.01); }
+        .data-table tr { transition: background-color 0.2s ease; position: relative; transform: none !important; }
+        .data-table tr:hover td { background: rgba(37, 99, 235, 0.08); }
+        /* 移除 transform 以避免创建新的层叠上下文，这会导致下拉菜单被遮挡 */
+        /* 确保操作列的下拉菜单容器有正确的 z-index */
+        .data-table td:last-child { position: relative; z-index: 1; }
+        .data-table td:last-child .dropdown { z-index: 100; }
+        /* 确保下拉菜单在表格行上方显示 */
+        .data-table tr .dropdown-menu { z-index: 10000 !important; }
+        /* 确保表格单元格不会创建新的层叠上下文 */
+        .data-table td { transform: none !important; }
         .category-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
         .category-tag.餐饮 { background: rgba(239, 68, 68, 0.15); color: #f87171; }
         .category-tag.交通 { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
@@ -304,8 +326,21 @@
         .modal-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
         .modal-actions .btn { flex: 1; }
-        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .action-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .action-btns .btn { width: auto; padding: 8px 12px; font-size: 13px; border-radius: 10px; white-space: nowrap; }
+        /* 图标按钮样式 */
+        .icon-btn { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.2s ease; position: relative; border: 1px solid var(--border); background: var(--bg-input); }
+        .icon-btn:hover { background: var(--bg-card); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .icon-btn.info { color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); }
+        .icon-btn.info:hover { background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; }
+        .icon-btn.danger { color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
+        .icon-btn.danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+        .icon-btn.secondary { color: var(--text-secondary); border-color: var(--border); }
+        .icon-btn.secondary:hover { background: var(--bg-input); color: var(--text-primary); border-color: var(--text-secondary); }
+        /* Tooltip 样式 */
+        .icon-btn[data-tooltip] { position: relative; }
+        .icon-btn[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 6px 12px; background: var(--bg-card); color: var(--text-primary); font-size: 12px; white-space: nowrap; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 10000; pointer-events: none; }
+        .icon-btn[data-tooltip]:hover::before { content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(2px); margin-bottom: 2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid var(--border); z-index: 10001; pointer-events: none; }
         .email-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--success); color: white; margin-left: 8px; }
         .email-badge.disabled { background: var(--secondary); }
         .chat-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
@@ -471,9 +506,19 @@
                 <div class="user-avatar-compact" id="userAvatarCompact">A</div>
                 <div class="user-details-compact">
                     <div class="user-name-compact" id="displayUsernameCompact">管理员</div>
-                    <div class="user-role-compact">系统管理员</div>
+                    <div class="user-role-compact" id="userRoleCompact">系统管理员</div>
+                    <div class="impersonation-badge" id="impersonationBadge" style="display:none;margin-top:4px;font-size:11px;color:var(--warning);">
+                        <span style="background:var(--warning);color:#fff;padding:2px 6px;border-radius:4px;">模拟登录中</span>
+                    </div>
                 </div>
             </div>
+            <button class="top-toolbar-btn" id="exitImpersonationBtn" onclick="exitImpersonation()" title="退出模拟登录" style="display:none;background:var(--warning);color:#fff;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </button>
             <button class="top-toolbar-btn" id="themeFab" onclick="openThemeModal()" title="切换主题">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 3v3"/>
@@ -746,6 +791,7 @@
                 <div class="filter-bar">
                     <div class="filter-row">
                         <div class="filter-item"><label>选择AI模型 *</label><select id="analysisModelId" onchange="onAnalysisModelChange()" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">请选择AI模型</option></select></div>
+                        <div class="filter-item" id="analysisUserFilterItem" style="display:none;"><label>选择用户</label><select id="analysisUserId" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">全部用户</option></select></div>
                         <div class="filter-item"><label>开始日期 *</label><input type="date" id="analysisStartDate" required></div>
                         <div class="filter-item"><label>结束日期 *</label><input type="date" id="analysisEndDate" required></div>
                         <div class="filter-actions">
@@ -1307,6 +1353,23 @@
             // 更新右上角用户信息
             document.getElementById('displayUsernameCompact').textContent = currentUsername;
             document.getElementById('userAvatarCompact').textContent = currentUsername.charAt(0).toUpperCase();
+            
+            // 检查是否在模拟登录状态
+            const originalAdminId = getCookie('original_admin_id');
+            const isImpersonating = originalAdminId && originalAdminId !== '';
+            
+            if (isImpersonating) {
+                // 显示模拟登录状态
+                document.getElementById('impersonationBadge').style.display = 'block';
+                document.getElementById('exitImpersonationBtn').style.display = 'flex';
+                document.getElementById('userRoleCompact').textContent = isAdmin ? '管理员（模拟中）' : '普通用户（模拟中）';
+            } else {
+                // 隐藏模拟登录状态
+                document.getElementById('impersonationBadge').style.display = 'none';
+                document.getElementById('exitImpersonationBtn').style.display = 'none';
+                document.getElementById('userRoleCompact').textContent = isAdmin ? '系统管理员' : '普通用户';
+            }
+            
             // 显示右上角工具栏
             document.getElementById('topToolbar').style.display = 'flex';
         }
@@ -1339,6 +1402,12 @@
             }
             if (incomeUserIdGroup) {
                 incomeUserIdGroup.style.display = isAdmin ? 'block' : 'none';
+            }
+            
+            // AI分析页面：根据权限显示/隐藏用户筛选
+            const analysisUserFilterItem = document.getElementById('analysisUserFilterItem');
+            if (analysisUserFilterItem) {
+                analysisUserFilterItem.style.display = isAdmin ? 'block' : 'none';
             }
             
             // 非管理员自动设置用户ID为自己
@@ -1436,7 +1505,11 @@
             else if (page === 'categories') loadCategories();
             else if (page === 'incomes') { setDefaultIncomeDates(); loadIncomes(); }
             else if (page === 'ai-models') loadAIModels();
-            else if (page === 'ai-analysis') { loadAIModelsForAnalysis(); setDefaultAnalysisDates(); }
+            else if (page === 'ai-analysis') { 
+                loadAIModelsForAnalysis(); 
+                setDefaultAnalysisDates();
+                loadUsersForAnalysis();
+            }
             else if (page === 'ai-chat') { loadAIModelsForChat(); }
         }
 
@@ -1614,6 +1687,8 @@
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
             } else {
                 const currentUserId = parseInt(getCookie('admin_user_id') || '0');
+                const originalAdminId = getCookie('original_admin_id');
+                const canImpersonate = originalAdminId && originalAdminId !== '' ? false : isAdmin; // 如果正在模拟登录，不能再次模拟
                 tbody.innerHTML = users.map(user => {
                     const isCurrentUser = user.id === currentUserId;
                     const status = user.status || 'active';
@@ -1634,10 +1709,13 @@
                         <td>
                             <div class="action-btns">
                                 <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">重置密码</button>
-                                ${!isCurrentUser ? `<button class="btn btn-danger btn-sm" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">删除</button>` : ''}
                                 ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
-                                ${!isCurrentUser ? `<button class="btn btn-secondary btn-sm" onclick="updateUserStatus(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${nextStatus}')">${toggleText}</button>` : ''}
                                 ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
+                                ${!isCurrentUser ? `
+                                    ${!user.is_admin && canImpersonate ? `<button class="icon-btn info" data-tooltip="模拟登录" onclick="impersonateUser(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="模拟登录">🔐</button>` : ''}
+                                    <button class="icon-btn danger" data-tooltip="删除" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="删除">🗑️</button>
+                                    <button class="icon-btn secondary" data-tooltip="${toggleText}" onclick="updateUserStatus(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${nextStatus}')" title="${toggleText}">${user.status === 'locked' ? '🔓' : '🔒'}</button>
+                                ` : ''}
                             </div>
                         </td>
                     </tr>
@@ -1699,6 +1777,54 @@
                 showToast(data.message, data.success ? 'success' : 'error');
             } catch (e) { showToast('发送失败', 'error'); }
         }
+
+        // 模拟登录用户
+        async function impersonateUser(userId, username) {
+            if (!confirm(`确定要模拟登录用户「${username}」吗？\n\n模拟登录后，您将以该用户的身份查看系统。`)) return;
+            try {
+                const res = await fetch('/admin/users/impersonate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // 重新加载页面以更新状态
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showToast(data.message || '模拟登录失败', 'error');
+                }
+            } catch (e) {
+                showToast('模拟登录失败', 'error');
+            }
+        }
+
+        // 退出模拟登录
+        async function exitImpersonation() {
+            if (!confirm('确定要退出模拟登录，恢复为管理员身份吗？')) return;
+            try {
+                const res = await fetch('/admin/users/exit-impersonation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // 重新加载页面以更新状态
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showToast(data.message || '退出模拟失败', 'error');
+                }
+            } catch (e) {
+                showToast('退出模拟失败', 'error');
+            }
+        }
+
 
         let deleteUserId = null;
         let setAdminUserId = null;
@@ -2450,6 +2576,29 @@
         }
 
         // ===== AI分析功能 =====
+        async function loadUsersForAnalysis() {
+            if (!isAdmin) return; // 非管理员不需要加载用户列表
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    allUsers = data.data || [];
+                    const select = document.getElementById('analysisUserId');
+                    if (select) {
+                        select.innerHTML = '<option value="">全部用户</option>';
+                        allUsers.forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            option.textContent = user.username + (user.is_admin ? ' (管理员)' : '');
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('加载用户列表失败:', e);
+            }
+        }
+
         async function loadAIModelsForAnalysis() {
             try {
                 const res = await fetch('/admin/ai-models');
@@ -2578,6 +2727,7 @@
             const modelId = document.getElementById('analysisModelId').value;
             const startDate = document.getElementById('analysisStartDate').value;
             const endDate = document.getElementById('analysisEndDate').value;
+            const userId = document.getElementById('analysisUserId')?.value || '';
 
             if (!modelId || !startDate || !endDate) {
                 showToast('请填写所有必填项', 'warning');
@@ -2592,15 +2742,22 @@
             resultDiv.textContent = '正在分析，请稍候...\n\n';
             let raw = '';
 
+            // 构建请求体
+            const requestBody = {
+                model_id: parseInt(modelId),
+                start_time: startDate,
+                end_time: endDate
+            };
+            // 仅管理员可以传递 user_id
+            if (isAdmin && userId) {
+                requestBody.user_id = parseInt(userId);
+            }
+
             try {
                 const response = await fetch('/admin/ai-analysis', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model_id: parseInt(modelId),
-                        start_time: startDate,
-                        end_time: endDate
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {

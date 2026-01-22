@@ -255,6 +255,21 @@ type AdminUpdateIncomeRequest struct {
 	IncomeTime string  `json:"income_time"`
 }
 
+// GetAllIncomes 获取收入记录列表（后台管理）
+// @Summary 获取收入记录列表
+// @Description 获取收入记录列表，支持分页、时间范围、类型、用户名筛选。管理员可查看所有记录并可按用户ID筛选，非管理员只能查看自己的记录。
+// @Tags 后台管理-收入管理
+// @Produce json
+// @Param page query int false "页码，默认1"
+// @Param page_size query int false "每页数量，默认20"
+// @Param start_time query string false "开始时间 (YYYY-MM-DD)"
+// @Param end_time query string false "结束时间 (YYYY-MM-DD)"
+// @Param type query string false "收入类型筛选"
+// @Param username query string false "用户名筛选（模糊匹配）"
+// @Param user_id query int false "用户ID筛选（仅管理员可用）"
+// @Success 200 {object} map[string]interface{} "获取成功，返回分页数据"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/incomes [get]
 func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 	// 获取当前用户（需要从 admin.go 导入 getCurrentUser，但这里先直接实现）
 	userIDStr, err := c.Cookie("admin_user_id")
@@ -343,6 +358,19 @@ func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 	})
 }
 
+// CreateIncome 创建收入记录（后台管理）
+// @Summary 创建收入记录
+// @Description 创建一条新的收入记录。管理员可以为任何用户创建，非管理员只能为自己创建。
+// @Tags 后台管理-收入管理
+// @Accept json
+// @Produce json
+// @Param request body AdminCreateIncomeRequest true "收入信息"
+// @Success 200 {object} map[string]interface{} "创建成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或时间格式错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/incomes [post]
 func (h *AdminHandler) CreateIncome(c *gin.Context) {
 	// 获取当前用户
 	userIDStr, err := c.Cookie("admin_user_id")
@@ -391,6 +419,20 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "创建成功", "data": in})
 }
 
+// UpdateIncome 更新收入记录（后台管理）
+// @Summary 更新收入记录
+// @Description 更新指定的收入记录。管理员可以更新任何记录，非管理员只能更新自己的记录。
+// @Tags 后台管理-收入管理
+// @Accept json
+// @Produce json
+// @Param id path int true "收入记录ID"
+// @Param request body AdminUpdateIncomeRequest true "更新的收入信息"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或时间格式错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/incomes/{id} [put]
 func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 	// 获取当前用户
 	userIDStr, err := c.Cookie("admin_user_id")
@@ -454,6 +496,17 @@ func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "更新成功", "data": in})
 }
 
+// DeleteIncome 删除收入记录（后台管理）
+// @Summary 删除收入记录
+// @Description 删除指定的收入记录（软删除）。管理员可以删除任何记录，非管理员只能删除自己的记录。
+// @Tags 后台管理-收入管理
+// @Produce json
+// @Param id path int true "收入记录ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/incomes/{id} [delete]
 func (h *AdminHandler) DeleteIncome(c *gin.Context) {
 	idStr := c.Param("id")
 	var id uint

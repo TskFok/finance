@@ -31,6 +31,13 @@ type CategoryUpdateRequest struct {
 }
 
 // List 列出所有类别（不包含软删除）
+// @Summary 获取消费类别列表
+// @Description 获取所有消费类别列表，支持按名称模糊搜索
+// @Tags 后台管理-消费类别
+// @Produce json
+// @Param name query string false "类别名称（模糊匹配）"
+// @Success 200 {object} map[string]interface{} "获取成功，返回类别列表"
+// @Router /admin/categories [get]
 func (h *CategoryHandler) List(c *gin.Context) {
 	var list []models.ExpenseCategory
 	if err := database.DB.Order("sort ASC, id ASC").Find(&list).Error; err != nil {
@@ -41,6 +48,15 @@ func (h *CategoryHandler) List(c *gin.Context) {
 }
 
 // Create 创建类别
+// @Summary 创建消费类别
+// @Description 创建新的消费类别，支持设置名称、排序和颜色
+// @Tags 后台管理-消费类别
+// @Accept json
+// @Produce json
+// @Param request body CategoryCreateRequest true "类别信息"
+// @Success 200 {object} map[string]interface{} "创建成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或类别名称已存在"
+// @Router /admin/categories [post]
 func (h *CategoryHandler) Create(c *gin.Context) {
 	var req CategoryCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -73,6 +89,17 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 }
 
 // Update 更新类别
+// @Summary 更新消费类别
+// @Description 更新指定的消费类别信息
+// @Tags 后台管理-消费类别
+// @Accept json
+// @Produce json
+// @Param id path int true "类别ID"
+// @Param request body CategoryUpdateRequest true "更新的类别信息"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或类别名称已存在"
+// @Failure 404 {object} map[string]interface{} "类别不存在"
+// @Router /admin/categories/{id} [put]
 func (h *CategoryHandler) Update(c *gin.Context) {
 	id64, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -130,6 +157,15 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 }
 
 // Delete 软删除类别
+// @Summary 删除消费类别
+// @Description 软删除指定的消费类别
+// @Tags 后台管理-消费类别
+// @Produce json
+// @Param id path int true "类别ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "类别不存在"
+// @Router /admin/categories/{id} [delete]
 func (h *CategoryHandler) Delete(c *gin.Context) {
 	id64, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

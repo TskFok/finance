@@ -47,6 +47,17 @@ type AdminLoginRequest struct {
 }
 
 // AdminLogin 管理员登录（使用 session/cookie 方式）
+// @Summary 管理员登录
+// @Description 管理员使用用户名和密码登录，登录成功后设置 Cookie。只有状态为 active 的用户可以登录。
+// @Tags 后台管理
+// @Accept json
+// @Produce json
+// @Param request body AdminLoginRequest true "登录信息"
+// @Success 200 {object} map[string]interface{} "登录成功，返回用户信息"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 401 {object} map[string]interface{} "用户名或密码错误"
+// @Failure 403 {object} map[string]interface{} "账号已锁定"
+// @Router /admin/login [post]
 func (h *AdminHandler) AdminLogin(c *gin.Context) {
 	var req AdminLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -90,13 +101,161 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 }
 
 // AdminLogout 管理员退出登录
+// @Summary 管理员退出登录
+// @Description 清除登录 Cookie，退出登录
+// @Tags 后台管理
+// @Produce json
+// @Success 200 {object} map[string]interface{} "退出成功"
+// @Router /admin/logout [post]
 func (h *AdminHandler) AdminLogout(c *gin.Context) {
 	c.SetCookie("admin_user_id", "", -1, "/", "", false, true)
 	c.SetCookie("admin_username", "", -1, "/", "", false, false)
+	c.SetCookie("admin_is_admin", "", -1, "/", "", false, false)
+	c.SetCookie("original_admin_id", "", -1, "/", "", false, true)
+	c.SetCookie("original_admin_username", "", -1, "/", "", false, false)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已退出登录"})
 }
 
+// ImpersonateUserRequest 模拟登录请求
+type ImpersonateUserRequest struct {
+	UserID uint `json:"user_id" binding:"required"`
+}
+
+// ImpersonateUser 模拟登录（仅管理员可用）
+// @Summary 模拟登录用户
+// @Description 管理员可以模拟登录非管理员用户，用于查看用户视角。不能模拟其他管理员。模拟登录后，原始管理员信息会保存在 Cookie 中，可以通过退出模拟恢复。
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param request body ImpersonateUserRequest true "用户ID"
+// @Success 200 {object} map[string]interface{} "模拟登录成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足或不能模拟管理员"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/impersonate [post]
+func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
+	// 获取当前用户（必须是管理员）
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "只有管理员可以模拟登录"})
+		return
+	}
+
+	var req ImpersonateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	// 查找要模拟的用户
+	var targetUser models.User
+	if err := database.DB.First(&targetUser, req.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	// 不能模拟其他管理员（防止权限提升）
+	if targetUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "不能模拟其他管理员账户"})
+		return
+	}
+
+	// 不能模拟自己
+	if targetUser.ID == currentUser.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "不能模拟自己的账户"})
+		return
+	}
+
+	// 保存原始管理员信息到 Cookie（用于退出模拟时恢复）
+	c.SetCookie("original_admin_id", fmt.Sprintf("%d", currentUser.ID), 86400, "/", "", false, true)
+	c.SetCookie("original_admin_username", currentUser.Username, 86400, "/", "", false, false)
+
+	// 设置被模拟用户的 Cookie
+	c.SetCookie("admin_user_id", fmt.Sprintf("%d", targetUser.ID), 86400, "/", "", false, true)
+	c.SetCookie("admin_username", targetUser.Username, 86400, "/", "", false, false)
+	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", targetUser.IsAdmin), 86400, "/", "", false, false)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("已模拟登录用户：%s", targetUser.Username),
+		"data": gin.H{
+			"user_id":  targetUser.ID,
+			"username": targetUser.Username,
+			"is_admin": targetUser.IsAdmin,
+		},
+	})
+}
+
+// ExitImpersonation 退出模拟登录
+// @Summary 退出模拟登录
+// @Description 退出模拟登录，恢复原始管理员身份
+// @Tags 后台管理-用户管理
+// @Produce json
+// @Success 200 {object} map[string]interface{} "退出模拟成功"
+// @Failure 401 {object} map[string]interface{} "未登录或未在模拟状态"
+// @Router /admin/users/exit-impersonation [post]
+func (h *AdminHandler) ExitImpersonation(c *gin.Context) {
+	// 获取原始管理员信息
+	originalAdminIDStr, err := c.Cookie("original_admin_id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "未在模拟登录状态"})
+		return
+	}
+
+	originalAdminID, err := strconv.ParseUint(originalAdminIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的原始管理员ID"})
+		return
+	}
+
+	// 查找原始管理员
+	var originalAdmin models.User
+	if err := database.DB.First(&originalAdmin, uint(originalAdminID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "原始管理员不存在"})
+		return
+	}
+
+	// 恢复原始管理员 Cookie
+	c.SetCookie("admin_user_id", fmt.Sprintf("%d", originalAdmin.ID), 86400, "/", "", false, true)
+	c.SetCookie("admin_username", originalAdmin.Username, 86400, "/", "", false, false)
+	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", originalAdmin.IsAdmin), 86400, "/", "", false, false)
+
+	// 清除原始管理员信息 Cookie
+	c.SetCookie("original_admin_id", "", -1, "/", "", false, true)
+	c.SetCookie("original_admin_username", "", -1, "/", "", false, false)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("已退出模拟，恢复为管理员：%s", originalAdmin.Username),
+		"data": gin.H{
+			"user_id":  originalAdmin.ID,
+			"username": originalAdmin.Username,
+			"is_admin": originalAdmin.IsAdmin,
+		},
+	})
+}
+
 // GetAllExpenses 获取消费记录（管理员看全部，非管理员只看自己的）
+// @Summary 获取消费记录列表
+// @Description 获取消费记录列表，支持分页、时间范围、类别、用户名筛选。管理员可查看所有记录并可按用户ID筛选，非管理员只能查看自己的记录。
+// @Tags 后台管理-消费记录
+// @Produce json
+// @Param page query int false "页码，默认1"
+// @Param page_size query int false "每页数量，默认20"
+// @Param start_time query string false "开始时间 (YYYY-MM-DD)"
+// @Param end_time query string false "结束时间 (YYYY-MM-DD)"
+// @Param category query string false "类别筛选"
+// @Param username query string false "用户名筛选（模糊匹配）"
+// @Param user_id query int false "用户ID筛选（仅管理员可用）"
+// @Success 200 {object} map[string]interface{} "获取成功，返回分页数据"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/expenses [get]
 func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -181,7 +340,13 @@ func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
 }
 
 // GetAllUsers 获取所有用户列表
-// GetAllUsers 获取所有用户（仅管理员）
+// @Summary 获取用户列表
+// @Description 获取系统中所有用户列表（包含软删除的用户）
+// @Tags 后台管理-用户管理
+// @Produce json
+// @Success 200 {object} map[string]interface{} "获取成功，返回用户列表"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/users [get]
 func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -211,6 +376,19 @@ type UpdateUserPasswordRequest struct {
 }
 
 // UpdateUserPassword 更新用户密码（仅管理员）
+// @Summary 更新用户密码
+// @Description 管理员可以修改指定用户的密码
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body UpdateUserPasswordRequest true "新密码"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id}/password [put]
 func (h *AdminHandler) UpdateUserPassword(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -264,6 +442,17 @@ func (h *AdminHandler) UpdateUserPassword(c *gin.Context) {
 }
 
 // DeleteUser 删除用户（仅管理员，软删除）
+// @Summary 删除用户
+// @Description 管理员可以删除用户（软删除），不能删除自己
+// @Tags 后台管理-用户管理
+// @Produce json
+// @Param id path int true "用户ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "不能删除自己"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id} [delete]
 func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -320,6 +509,19 @@ type UpdateUserStatusRequest struct {
 }
 
 // SetAdmin 设置用户管理员权限（仅管理员）
+// @Summary 设置管理员权限
+// @Description 管理员可以设置或取消其他用户的管理员权限，不能取消自己的管理员权限
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body SetAdminRequest true "管理员权限设置"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "不能取消自己的管理员权限"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id}/admin [put]
 func (h *AdminHandler) SetAdmin(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -445,6 +647,15 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 }
 
 // GetStatistics 获取统计数据
+// @Summary 获取统计数据
+// @Description 获取支出和收入的统计数据，包括总金额、总记录数、类别统计等。管理员可查看所有数据，非管理员只能查看自己的数据。
+// @Tags 后台管理-统计
+// @Produce json
+// @Param start_time query string false "开始时间 (YYYY-MM-DD)"
+// @Param end_time query string false "结束时间 (YYYY-MM-DD)"
+// @Success 200 {object} map[string]interface{} "获取成功"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/statistics [get]
 func (h *AdminHandler) GetStatistics(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -524,6 +735,21 @@ func (h *AdminHandler) GetStatistics(c *gin.Context) {
 }
 
 // GetDetailedStatistics 获取详细消费统计（支持月/年/自定义时间范围和多个类别筛选）
+// @Summary 获取详细消费统计
+// @Description 获取详细的消费统计数据，支持按月、按年或自定义时间范围统计，支持多个类别筛选。管理员可按用户ID筛选，非管理员只能查看自己的数据。
+// @Tags 后台管理-统计
+// @Produce json
+// @Param range_type query string true "时间范围类型：month(按月)、year(按年)、custom(自定义)"
+// @Param year_month query string false "当range_type=month时必填，格式：2024-01"
+// @Param year query string false "当range_type=year时必填，格式：2024"
+// @Param start_time query string false "当range_type=custom时必填，格式：2024-01-01"
+// @Param end_time query string false "当range_type=custom时必填，格式：2024-12-31"
+// @Param categories query string false "类别筛选，多个类别用逗号分隔，如：餐饮,交通"
+// @Param user_id query int false "用户ID筛选（仅管理员可用）"
+// @Success 200 {object} map[string]interface{} "获取成功，包含总金额、总记录数、类别统计等"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/expenses/detailed-statistics [get]
 func (h *AdminHandler) GetDetailedStatistics(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -702,6 +928,18 @@ type AdminCreateExpenseRequest struct {
 }
 
 // CreateExpense 创建消费记录
+// @Summary 创建消费记录
+// @Description 创建一条新的消费记录。管理员可以为任何用户创建，非管理员只能为自己创建。
+// @Tags 后台管理-消费记录
+// @Accept json
+// @Produce json
+// @Param request body AdminCreateExpenseRequest true "消费记录信息"
+// @Success 200 {object} map[string]interface{} "创建成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或类别不存在"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/expenses [post]
 func (h *AdminHandler) CreateExpense(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -778,6 +1016,19 @@ type AdminUpdateExpenseRequest struct {
 }
 
 // UpdateExpense 更新消费记录
+// @Summary 更新消费记录
+// @Description 更新指定的消费记录。管理员可以更新任何记录，非管理员只能更新自己的记录。
+// @Tags 后台管理-消费记录
+// @Accept json
+// @Produce json
+// @Param id path int true "消费记录ID"
+// @Param request body AdminUpdateExpenseRequest true "更新的消费记录信息"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或类别不存在"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/expenses/{id} [put]
 func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -857,6 +1108,16 @@ func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 }
 
 // DeleteExpense 删除消费记录
+// @Summary 删除消费记录
+// @Description 删除指定的消费记录（软删除）。管理员可以删除任何记录，非管理员只能删除自己的记录。
+// @Tags 后台管理-消费记录
+// @Produce json
+// @Param id path int true "消费记录ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/expenses/{id} [delete]
 func (h *AdminHandler) DeleteExpense(c *gin.Context) {
 	// 获取当前用户
 	currentUser, err := getCurrentUser(c)
@@ -898,6 +1159,15 @@ func (h *AdminHandler) DeleteExpense(c *gin.Context) {
 // GetCategories 已废弃：路由已切到 CategoryHandler.List
 
 // ExportExcel 导出 Excel
+// @Summary 导出消费记录为Excel
+// @Description 根据时间范围导出消费记录为Excel文件
+// @Tags 后台管理-导出
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param start_time query string true "开始时间 (YYYY-MM-DD)"
+// @Param end_time query string true "结束时间 (YYYY-MM-DD)"
+// @Success 200 {file} file "Excel文件"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Router /admin/export/excel [get]
 func (h *AdminHandler) ExportExcel(c *gin.Context) {
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")

@@ -36,6 +36,7 @@ type AnalysisRequest struct {
 	ModelID   uint   `json:"model_id" binding:"required"`
 	StartTime string `json:"start_time" binding:"required" example:"2024-01-01"`
 	EndTime   string `json:"end_time" binding:"required" example:"2024-12-31"`
+	UserID    *uint  `json:"user_id,omitempty" example:"1"` // 可选，仅管理员可用，用于筛选指定用户的账单
 }
 
 type sseAnalysisFrame struct {
@@ -53,6 +54,16 @@ func writeAnalysisSSE(c *gin.Context, v any) {
 }
 
 // AnalyzeExpenses 分析消费记录（流式输出）
+// @Summary AI分析消费记录（流式）
+// @Description 选择时间范围和AI模型，对消费记录进行AI分析，SSE流式返回JSON帧（delta/done/error）。管理员可分析所有记录或指定用户的记录（通过user_id参数），非管理员只能分析自己的记录。分析结束后会保存到历史记录。
+// @Tags 后台管理-AI分析
+// @Accept json
+// @Produce text/event-stream
+// @Param request body AnalysisRequest true "分析请求（user_id字段仅管理员可用）"
+// @Success 200 {string} string "SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}"
+// @Failure 400 {object} map[string]interface{} "参数错误或该时间范围内没有消费记录"
+// @Failure 404 {object} map[string]interface{} "AI模型不存在"
+// @Router /admin/ai-analysis [post]
 func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	var req AnalysisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -74,15 +85,28 @@ func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 		return
 	}
 
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	// 查询消费记录
 	var expenses []ExpenseWithUser
 	q := database.DB.Model(&models.Expense{}).
 		Select("expenses.*, users.username").
 		Joins("LEFT JOIN users ON expenses.user_id = users.id").
 		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", startTime, endTime)
-	// Admin 端：如果是非管理员（cookie 登录），只分析自己的消费；管理员默认分析全局
-	if u, e := getCurrentUser(c); e == nil && !u.IsAdmin {
-		q = q.Where("expenses.user_id = ?", u.ID)
+
+	// 权限过滤：非管理员只能分析自己的账单
+	if !currentUser.IsAdmin {
+		q = q.Where("expenses.user_id = ?", currentUser.ID)
+	} else {
+		// 管理员可以按用户ID筛选
+		if req.UserID != nil && *req.UserID > 0 {
+			q = q.Where("expenses.user_id = ?", *req.UserID)
+		}
 	}
 	if err := q.Order("expenses.expense_time DESC").Scan(&expenses).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询消费记录失败"})
@@ -98,11 +122,8 @@ func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	prompt := h.buildAnalysisPrompt(expenses, req.StartTime, req.EndTime)
 
 	// 调用AI模型API（流式）
-	uid := uint(0)
-	if u, e := getCurrentUser(c); e == nil {
-		uid = u.ID
-	}
-	if err := h.callAIModelStreamAndStore(c, aiModel, uid, req.StartTime, req.EndTime, prompt); err != nil {
+	// 保存历史记录时使用当前登录用户的ID
+	if err := h.callAIModelStreamAndStore(c, aiModel, currentUser.ID, req.StartTime, req.EndTime, prompt); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "AI分析失败: " + err.Error()})
 		return
 	}
@@ -402,6 +423,16 @@ func (h *AIAnalysisHandler) processAnalysisLineToJSON(c *gin.Context, line []byt
 }
 
 // ListAnalysisHistory 获取AI分析历史（按模型分页）
+// @Summary 获取AI分析历史
+// @Description 获取AI分析历史记录，按model_id分页返回（软删除不返回）
+// @Tags 后台管理-AI分析
+// @Produce json
+// @Param model_id query int true "AI模型ID"
+// @Param page query int false "页码，默认1"
+// @Param page_size query int false "每页条数，默认20，最大100"
+// @Success 200 {object} map[string]interface{} "获取成功，返回分页数据"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Router /admin/ai-analysis/history [get]
 func (h *AIAnalysisHandler) ListAnalysisHistory(c *gin.Context) {
 	modelIDStr := c.Query("model_id")
 	if modelIDStr == "" {
@@ -454,6 +485,15 @@ func (h *AIAnalysisHandler) ListAnalysisHistory(c *gin.Context) {
 }
 
 // DeleteAnalysisHistory 软删除AI分析历史
+// @Summary 删除AI分析历史
+// @Description 软删除指定的AI分析历史记录
+// @Tags 后台管理-AI分析
+// @Produce json
+// @Param id path int true "历史记录ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/ai-analysis/history/{id} [delete]
 func (h *AIAnalysisHandler) DeleteAnalysisHistory(c *gin.Context) {
 	idStr := c.Param("id")
 	id64, err := strconv.ParseUint(idStr, 10, 32)

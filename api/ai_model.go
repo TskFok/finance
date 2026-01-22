@@ -20,19 +20,28 @@ func NewAIModelHandler() *AIModelHandler {
 
 // CreateAIModelRequest 创建AI模型请求
 type CreateAIModelRequest struct {
-	Name   string `json:"name" binding:"required,min=1,max=100" example:"OpenAI GPT-4"`
+	Name    string `json:"name" binding:"required,min=1,max=100" example:"OpenAI GPT-4"`
 	BaseURL string `json:"base_url" binding:"required,url" example:"https://api.openai.com/v1"`
 	APIKey  string `json:"api_key" binding:"required,min=1" example:"sk-..."`
 }
 
 // UpdateAIModelRequest 更新AI模型请求
 type UpdateAIModelRequest struct {
-	Name   string `json:"name" binding:"omitempty,min=1,max=100"`
+	Name    string `json:"name" binding:"omitempty,min=1,max=100"`
 	BaseURL string `json:"base_url" binding:"omitempty,url"`
 	APIKey  string `json:"api_key" binding:"omitempty,min=1"`
 }
 
 // CreateAIModel 创建AI模型配置
+// @Summary 创建AI模型
+// @Description 创建新的AI模型配置，包括名称、API地址和密钥
+// @Tags 后台管理-AI模型
+// @Accept json
+// @Produce json
+// @Param request body CreateAIModelRequest true "AI模型信息"
+// @Success 200 {object} map[string]interface{} "创建成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或模型名称已存在"
+// @Router /admin/ai-models [post]
 func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 	var req CreateAIModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -48,7 +57,7 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 	}
 
 	aiModel := models.AIModel{
-		Name:   req.Name,
+		Name:    req.Name,
 		BaseURL: req.BaseURL,
 		APIKey:  req.APIKey,
 	}
@@ -66,6 +75,12 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 }
 
 // GetAllAIModels 获取所有AI模型列表
+// @Summary 获取AI模型列表
+// @Description 获取系统中所有AI模型配置列表（不包含APIKey）
+// @Tags 后台管理-AI模型
+// @Produce json
+// @Success 200 {object} map[string]interface{} "获取成功，返回模型列表"
+// @Router /admin/ai-models [get]
 func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
 	var models []models.AIModel
 	if err := database.DB.Find(&models).Error; err != nil {
@@ -80,6 +95,15 @@ func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
 }
 
 // GetAIModel 获取单个AI模型
+// @Summary 获取单个AI模型
+// @Description 根据ID获取AI模型配置详情（不包含APIKey）
+// @Tags 后台管理-AI模型
+// @Produce json
+// @Param id path int true "AI模型ID"
+// @Success 200 {object} map[string]interface{} "获取成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "模型不存在"
+// @Router /admin/ai-models/{id} [get]
 func (h *AIModelHandler) GetAIModel(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -101,6 +125,17 @@ func (h *AIModelHandler) GetAIModel(c *gin.Context) {
 }
 
 // UpdateAIModel 更新AI模型配置
+// @Summary 更新AI模型
+// @Description 更新指定的AI模型配置信息
+// @Tags 后台管理-AI模型
+// @Accept json
+// @Produce json
+// @Param id path int true "AI模型ID"
+// @Param request body UpdateAIModelRequest true "更新的模型信息"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或模型名称已存在"
+// @Failure 404 {object} map[string]interface{} "模型不存在"
+// @Router /admin/ai-models/{id} [put]
 func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -158,6 +193,15 @@ func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 }
 
 // DeleteAIModel 删除AI模型配置
+// @Summary 删除AI模型
+// @Description 删除指定的AI模型配置（软删除）
+// @Tags 后台管理-AI模型
+// @Produce json
+// @Param id path int true "AI模型ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "模型不存在"
+// @Router /admin/ai-models/{id} [delete]
 func (h *AIModelHandler) DeleteAIModel(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -182,4 +226,3 @@ func (h *AIModelHandler) DeleteAIModel(c *gin.Context) {
 		"message": "删除成功",
 	})
 }
-

@@ -45,6 +45,16 @@ type AIChatRequest struct {
 }
 
 // ChatStream AI聊天（SSE流式返回），结束后写入聊天记录
+// @Summary AI聊天（流式）
+// @Description 选择AI模型，与AI进行对话，SSE流式返回JSON帧（delta/done/error）。结束后保存聊天记录。
+// @Tags 后台管理-AI聊天
+// @Accept json
+// @Produce text/event-stream
+// @Param request body AIChatRequest true "聊天请求"
+// @Success 200 {string} string "SSE流：data: {\"type\":\"delta\",\"content\":\"...\"}"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 404 {object} map[string]interface{} "AI模型不存在"
+// @Router /admin/ai-chat [post]
 func (h *AIChatHandler) ChatStream(c *gin.Context) {
 	var req AIChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -393,6 +403,16 @@ func (h *AIChatHandler) chatHistoryScoped(c *gin.Context, userID uint, requireUs
 }
 
 // ChatHistory 获取聊天历史（按模型分页）
+// @Summary 获取AI聊天历史
+// @Description 获取AI聊天历史记录，按model_id分页返回（软删除不返回）
+// @Tags 后台管理-AI聊天
+// @Produce json
+// @Param model_id query int true "AI模型ID"
+// @Param page query int false "页码，默认1"
+// @Param page_size query int false "每页条数，默认20，最大100"
+// @Success 200 {object} map[string]interface{} "获取成功，返回分页数据"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Router /admin/ai-chat/history [get]
 func (h *AIChatHandler) ChatHistory(c *gin.Context) {
 	modelIDStr := c.Query("model_id")
 	if modelIDStr == "" {
@@ -459,6 +479,15 @@ func (h *AIChatHandler) ChatHistory(c *gin.Context) {
 }
 
 // DeleteChatHistory 软删除聊天记录
+// @Summary 删除AI聊天记录
+// @Description 软删除指定的AI聊天记录
+// @Tags 后台管理-AI聊天
+// @Produce json
+// @Param id path int true "聊天记录ID"
+// @Success 200 {object} map[string]interface{} "删除成功"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "记录不存在"
+// @Router /admin/ai-chat/history/{id} [delete]
 func (h *AIChatHandler) DeleteChatHistory(c *gin.Context) {
 	idStr := c.Param("id")
 	id64, err := strconv.ParseUint(idStr, 10, 32)
