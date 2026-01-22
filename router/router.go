@@ -53,6 +53,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		adminAuth := admin.Group("")
 		adminAuth.Use(AdminAuthMiddleware())
 		{
+			adminAuth.GET("/current-user", adminHandler.GetCurrentUserInfo)
 			adminAuth.GET("/expenses", adminHandler.GetAllExpenses)
 			adminAuth.POST("/expenses", adminHandler.CreateExpense)
 			adminAuth.PUT("/expenses/:id", adminHandler.UpdateExpense)

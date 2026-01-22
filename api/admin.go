@@ -100,6 +100,32 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 	})
 }
 
+// GetCurrentUserInfo 获取当前登录用户信息
+// @Summary 获取当前登录用户信息
+// @Description 获取当前登录用户的详细信息（包括用户ID）
+// @Tags 后台管理
+// @Produce json
+// @Success 200 {object} map[string]interface{} "获取成功"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Router /admin/current-user [get]
+func (h *AdminHandler) GetCurrentUserInfo(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"is_admin": user.IsAdmin,
+			"status":   user.Status,
+		},
+	})
+}
+
 // AdminLogout 管理员退出登录
 // @Summary 管理员退出登录
 // @Description 清除登录 Cookie，退出登录
@@ -702,14 +728,30 @@ func (h *AdminHandler) GetStatistics(c *gin.Context) {
 	incomeQuery.Select("COALESCE(SUM(amount), 0)").Scan(&totalIncome)
 	incomeQuery.Count(&incomeCount)
 
-	// 按类别统计
+	// 按类别统计（使用已过滤的query）
 	type CategoryStat struct {
 		Category string  `json:"category"`
 		Total    float64 `json:"total"`
 		Count    int64   `json:"count"`
 	}
 	var categoryStats []CategoryStat
-	database.DB.Model(&models.Expense{}).
+	// 重新构建查询以应用相同的过滤条件
+	categoryQuery := database.DB.Model(&models.Expense{})
+	if !currentUser.IsAdmin {
+		categoryQuery = categoryQuery.Where("user_id = ?", currentUser.ID)
+	}
+	if startTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", startTime, time.Local); err == nil {
+			categoryQuery = categoryQuery.Where("expense_time >= ?", t)
+		}
+	}
+	if endTime != "" {
+		if t, err := time.ParseInLocation("2006-01-02", endTime, time.Local); err == nil {
+			t = t.Add(24*time.Hour - time.Second)
+			categoryQuery = categoryQuery.Where("expense_time <= ?", t)
+		}
+	}
+	categoryQuery.
 		Select("category, SUM(amount) as total, COUNT(*) as count").
 		Group("category").
 		Order("total DESC").
@@ -1160,15 +1202,23 @@ func (h *AdminHandler) DeleteExpense(c *gin.Context) {
 
 // ExportExcel 导出 Excel
 // @Summary 导出消费记录为Excel
-// @Description 根据时间范围导出消费记录为Excel文件
+// @Description 根据时间范围导出消费记录为Excel文件。管理员可导出所有用户数据，普通用户只能导出自己的数据。
 // @Tags 后台管理-导出
 // @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param start_time query string true "开始时间 (YYYY-MM-DD)"
 // @Param end_time query string true "结束时间 (YYYY-MM-DD)"
 // @Success 200 {file} file "Excel文件"
 // @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
 // @Router /admin/export/excel [get]
 func (h *AdminHandler) ExportExcel(c *gin.Context) {
+	// 获取当前登录用户
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 
@@ -1197,12 +1247,17 @@ func (h *AdminHandler) ExportExcel(c *gin.Context) {
 	}
 
 	var expenses []ExpenseWithUser
-	database.DB.Model(&models.Expense{}).
+	query := database.DB.Model(&models.Expense{}).
 		Select("expenses.*, users.username").
 		Joins("LEFT JOIN users ON expenses.user_id = users.id").
-		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", start, end).
-		Order("expenses.expense_time DESC").
-		Scan(&expenses)
+		Where("expenses.expense_time >= ? AND expenses.expense_time <= ?", start, end)
+
+	// 如果不是管理员，只导出当前用户的数据
+	if !currentUser.IsAdmin {
+		query = query.Where("expenses.user_id = ?", currentUser.ID)
+	}
+
+	query.Order("expenses.expense_time DESC").Scan(&expenses)
 
 	// 创建 Excel 文件
 	f := excelize.NewFile()

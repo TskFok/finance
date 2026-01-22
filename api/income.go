@@ -271,19 +271,9 @@ type AdminUpdateIncomeRequest struct {
 // @Failure 401 {object} map[string]interface{} "未登录"
 // @Router /admin/incomes [get]
 func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
-	// 获取当前用户（需要从 admin.go 导入 getCurrentUser，但这里先直接实现）
-	userIDStr, err := c.Cookie("admin_user_id")
+	// 获取当前用户
+	currentUser, err := getCurrentUser(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	var currentUser models.User
-	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
 		return
 	}
@@ -332,7 +322,8 @@ func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 	if typ != "" {
 		query = query.Where("incomes.type = ?", typ)
 	}
-	if username != "" {
+	// 用户名查询只对管理员开放
+	if username != "" && currentUser.IsAdmin {
 		query = query.Where("users.username LIKE ?", "%"+username+"%")
 	}
 

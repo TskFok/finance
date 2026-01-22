@@ -488,7 +488,7 @@
                 <div class="nav-item" data-page="ai-models">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     AI模型
-                </div>
+            </div>
                 <div class="nav-item" data-page="ai-analysis">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     AI分析
@@ -610,6 +610,12 @@
                             <label>结束日期</label>
                             <input type="date" id="statEndDate">
                         </div>
+                        <div class="filter-item" id="statUserFilterItem" style="display: none;">
+                            <label>选择用户</label>
+                            <select id="statUserId" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                                <option value="">全部用户</option>
+                            </select>
+                        </div>
                         <div class="filter-item" style="flex: 1; min-width: 200px;">
                             <label>消费类别筛选</label>
                             <button class="btn btn-secondary" onclick="openCategoryDrawer()" style="width: 100%; justify-content: space-between;">
@@ -730,7 +736,13 @@
                 </div>
                 <div class="stat-card" style="max-width: 600px;">
                     <h3 style="margin-bottom: 16px; font-size: 18px;">📋 导出说明</h3>
-                    <ul style="color: var(--text-secondary); line-height: 2;"><li>请选择要导出的时间范围</li><li>导出文件格式为 Excel (.xlsx)</li><li>文件包含：ID、用户名、金额、类别、描述、消费时间、创建时间</li><li>文件末尾包含金额汇总统计</li></ul>
+                    <ul style="color: var(--text-secondary); line-height: 2;">
+                        <li>请选择要导出的时间范围</li>
+                        <li>导出文件格式为 Excel (.xlsx)</li>
+                        <li>文件包含：ID、用户名、金额、类别、描述、消费时间、创建时间</li>
+                        <li>文件末尾包含金额汇总统计</li>
+                        <li id="exportPermissionHint" style="color: var(--primary); font-weight: 500; margin-top: 8px;">权限说明：管理员可导出所有用户数据，普通用户只能导出自己的数据</li>
+                    </ul>
                 </div>
             </div>
 
@@ -743,8 +755,8 @@
                     <div class="filter-row">
                         <div class="filter-item"><label>开始日期</label><input type="date" id="incomeFilterStartDate"></div>
                         <div class="filter-item"><label>结束日期</label><input type="date" id="incomeFilterEndDate"></div>
-                        <div class="filter-item"><label>收入类型</label><input type="text" id="incomeFilterType" placeholder="例如：工资"></div>
-                        <div class="filter-item"><label>用户名</label><input type="text" id="incomeFilterUsername" placeholder="搜索用户名"></div>
+                        <div class="filter-item" id="incomeFilterTypeItem" style="display: none;"><label>收入类型</label><input type="text" id="incomeFilterType" placeholder="例如：工资"></div>
+                        <div class="filter-item" id="incomeFilterUsernameItem" style="display: none;"><label>用户名</label><input type="text" id="incomeFilterUsername" placeholder="搜索用户名"></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadIncomes()">查询</button>
                             <button class="btn btn-success" onclick="openIncomeModal()">添加收入</button>
@@ -892,7 +904,7 @@
         <div class="modal-content" style="max-width: 520px;">
             <div class="modal-title" id="expenseModalTitle">➕ 添加消费记录</div>
             <div class="modal-subtitle" id="expenseModalSubtitle">填写消费记录信息</div>
-            <form id="expenseForm">
+            <form id="expenseForm" novalidate>
                 <div class="form-group" id="expenseUserIdGroup">
                     <label>选择用户 *</label>
                     <select id="expenseUserId" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
@@ -1172,6 +1184,7 @@
         let allCategories = [], editingCategoryId = null, deleteCategoryId = null;
         let incomeCurrentPage = 1, incomeTotalPages = 1, editingIncomeId = null, deleteIncomeId = null;
         let isAdmin = false; // 当前用户是否为管理员
+        let currentUserId = null; // 当前用户ID
 
         document.addEventListener('DOMContentLoaded', () => {
             checkResetToken();
@@ -1340,10 +1353,84 @@
             if (username) {
                 currentUsername = username;
                 isAdmin = isAdminStr === 'true';
+                
+                // 检查是否在模拟登录状态（通过 sessionStorage）
+                const impersonatedUserId = sessionStorage.getItem('impersonated_user_id');
+                const isImpersonating = impersonatedUserId && impersonatedUserId !== '';
+                
+                if (isImpersonating) {
+                    // 模拟登录时，优先从 sessionStorage 读取（模拟登录时保存的）
+                    currentUserId = parseInt(impersonatedUserId);
+                    console.log('模拟登录：从 sessionStorage 读取用户ID:', currentUserId);
+                    // 同时从服务器验证一次，确保准确性
+                    loadCurrentUserIdFromServer();
+                } else {
+                    // 正常登录时，从 localStorage 读取用户ID
+                    const savedUserId = localStorage.getItem('admin_user_id');
+                    if (savedUserId) {
+                        currentUserId = parseInt(savedUserId);
+                    } else {
+                        // 如果没有保存的用户ID，尝试从用户列表接口获取
+                        loadCurrentUserIdFromServer();
+                    }
+                }
+                
                 showApp();
                 loadEmailConfig();
                 updateUIByPermission();
                 restoreLastPageAfterAuth();
+            }
+        }
+        
+        // 从服务器获取当前用户ID（通过当前用户信息接口）
+        async function loadCurrentUserIdFromServer() {
+            try {
+                console.log('loadCurrentUserIdFromServer - 开始获取，currentUsername:', currentUsername);
+                // 优先使用专门的当前用户信息接口
+                const res = await fetch('/admin/current-user');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const oldUserId = currentUserId;
+                    currentUserId = data.data.id;
+                    console.log('从当前用户接口获取用户ID:', currentUserId, '用户名:', data.data.username, '旧ID:', oldUserId);
+                    // 检查是否在模拟登录状态（通过检查用户名是否匹配）
+                    const isImpersonating = data.data.username !== currentUsername || (currentUsername && data.data.username !== currentUsername);
+                    // 只有在非模拟登录状态下才保存到 localStorage
+                    if (!isImpersonating && data.data.username === currentUsername) {
+                        localStorage.setItem('admin_user_id', currentUserId.toString());
+                    } else {
+                        console.log('模拟登录状态或用户名不匹配：不保存到 localStorage');
+                    }
+                } else {
+                    // 降级方案：从用户列表接口查找
+                    console.log('当前用户接口失败，尝试从用户列表查找');
+                    const res2 = await fetch('/admin/users');
+                    const data2 = await res2.json();
+                    if (data2.success && data2.data) {
+                        console.log('loadCurrentUserIdFromServer - 用户列表:', data2.data.map(u => ({id: u.id, username: u.username})));
+                        const user = data2.data.find(u => u.username === currentUsername);
+                        if (user) {
+                            const oldUserId = currentUserId;
+                            currentUserId = user.id;
+                            console.log('从用户列表获取用户ID:', currentUserId, '用户名:', currentUsername, '旧ID:', oldUserId);
+                            // 检查是否在模拟登录状态
+                            const originalAdminId = getCookie('original_admin_id');
+                            const isImpersonating = originalAdminId && originalAdminId !== '';
+                            // 只有在非模拟登录状态下才保存到 localStorage
+                            if (!isImpersonating) {
+                                localStorage.setItem('admin_user_id', currentUserId.toString());
+                            } else {
+                                console.log('模拟登录状态：不保存到 localStorage');
+                            }
+                        } else {
+                            console.error('未找到用户:', currentUsername, '可用用户:', data2.data.map(u => u.username));
+                        }
+                    } else {
+                        console.error('获取用户列表失败:', data2);
+                    }
+                }
+            } catch (e) {
+                console.error('获取当前用户ID失败:', e);
             }
         }
 
@@ -1388,26 +1475,77 @@
                 switchPage('dashboard');
             }
             
+            // 更新数据概览页面的副标题
+            const dashboardSubtitle = document.querySelector('#page-dashboard .page-subtitle');
+            if (dashboardSubtitle) {
+                dashboardSubtitle.textContent = isAdmin ? '查看系统整体数据统计' : '查看个人数据统计';
+            }
+            
             // 账单管理页面：根据权限显示/隐藏用户筛选
             const filterUsernameItem = document.getElementById('filterUsernameItem');
             if (filterUsernameItem) {
                 filterUsernameItem.style.display = isAdmin ? 'block' : 'none';
             }
             
+            // 收入管理页面：根据权限显示/隐藏搜索框（仅管理员可见）
+            const incomeFilterTypeItem = document.getElementById('incomeFilterTypeItem');
+            const incomeFilterUsernameItem = document.getElementById('incomeFilterUsernameItem');
+            if (incomeFilterTypeItem) {
+                incomeFilterTypeItem.style.display = isAdmin ? 'block' : 'none';
+            }
+            if (incomeFilterUsernameItem) {
+                incomeFilterUsernameItem.style.display = isAdmin ? 'block' : 'none';
+            }
+            
             // 账单和收入添加/编辑：根据权限显示/隐藏用户选择
             const expenseUserIdGroup = document.getElementById('expenseUserIdGroup');
             const incomeUserIdGroup = document.getElementById('incomeUserIdGroup');
+            const expenseUserId = document.getElementById('expenseUserId');
+            const incomeUserId = document.getElementById('incomeUserId');
             if (expenseUserIdGroup) {
                 expenseUserIdGroup.style.display = isAdmin ? 'block' : 'none';
             }
             if (incomeUserIdGroup) {
                 incomeUserIdGroup.style.display = isAdmin ? 'block' : 'none';
             }
+            // 对于非管理员，移除 required 属性并设置当前用户ID
+            if (expenseUserId) {
+                if (isAdmin) {
+                    expenseUserId.required = true;
+                } else {
+                    expenseUserId.required = false;
+                    const currentUserId = getCookie('admin_user_id');
+                    if (currentUserId) {
+                        expenseUserId.value = currentUserId;
+                    }
+                }
+            }
+            if (incomeUserId) {
+                if (isAdmin) {
+                    incomeUserId.required = true;
+                } else {
+                    incomeUserId.required = false;
+                    const currentUserId = getCookie('admin_user_id');
+                    if (currentUserId) {
+                        incomeUserId.value = currentUserId;
+                    }
+                }
+            }
             
             // AI分析页面：根据权限显示/隐藏用户筛选
             const analysisUserFilterItem = document.getElementById('analysisUserFilterItem');
             if (analysisUserFilterItem) {
                 analysisUserFilterItem.style.display = isAdmin ? 'block' : 'none';
+            }
+            
+            // 账单统计页面：根据权限显示/隐藏用户筛选
+            const statUserFilterItem = document.getElementById('statUserFilterItem');
+            if (statUserFilterItem) {
+                statUserFilterItem.style.display = isAdmin ? 'block' : 'none';
+                // 如果是管理员，加载用户列表
+                if (isAdmin) {
+                    loadUsersForStatistics();
+                }
             }
             
             // 非管理员自动设置用户ID为自己
@@ -1553,10 +1691,17 @@
                 const data = await res.json();
                 if (data.success) {
                     currentUsername = username;
+                    // 保存用户ID到 localStorage 和变量
+                    if (data.data && data.data.user_id) {
+                        currentUserId = data.data.user_id;
+                        localStorage.setItem('admin_user_id', currentUserId.toString());
+                    }
+                    isAdmin = data.data && data.data.is_admin === true;
                     showToast('登录成功', 'success');
                     showApp();
                     loadStatistics();
                     loadEmailConfig();
+                    updateUIByPermission();
                 } else {
                     const msg = data.message || '登录失败';
                     const isLocked = res.status === 403 || msg.includes('锁定') || msg.toLowerCase().includes('locked');
@@ -1572,6 +1717,9 @@
 
         async function logout() {
             try { await fetch('/admin/logout', { method: 'POST' }); } catch (e) {}
+            // 清除本地存储的用户ID
+            localStorage.removeItem('admin_user_id');
+            currentUserId = null;
             document.getElementById('loginPage').style.display = 'flex';
             document.getElementById('appContainer').style.display = 'none';
             document.getElementById('topToolbar').style.display = 'none';
@@ -1686,7 +1834,16 @@
             if (!users || users.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无用户</td></tr>';
             } else {
-                const currentUserId = parseInt(getCookie('admin_user_id') || '0');
+                // 优先从变量获取，如果没有则从 localStorage 获取
+                let currentUserIdForTable = currentUserId;
+                if (!currentUserIdForTable) {
+                    const savedUserId = localStorage.getItem('admin_user_id');
+                    if (savedUserId) {
+                        currentUserIdForTable = parseInt(savedUserId);
+                        currentUserId = currentUserIdForTable;
+                    }
+                }
+                currentUserIdForTable = currentUserIdForTable || 0;
                 const originalAdminId = getCookie('original_admin_id');
                 const canImpersonate = originalAdminId && originalAdminId !== '' ? false : isAdmin; // 如果正在模拟登录，不能再次模拟
                 tbody.innerHTML = users.map(user => {
@@ -1789,6 +1946,15 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    // 从响应中获取被模拟用户的ID并保存到 sessionStorage（不覆盖 localStorage）
+                    if (data.data && data.data.user_id) {
+                        sessionStorage.setItem('impersonated_user_id', data.data.user_id.toString());
+                        console.log('模拟登录：保存用户ID到 sessionStorage:', data.data.user_id);
+                    } else {
+                        // 如果没有返回 user_id，使用传入的 userId 参数
+                        sessionStorage.setItem('impersonated_user_id', userId.toString());
+                        console.log('模拟登录：使用传入的用户ID保存到 sessionStorage:', userId);
+                    }
                     showToast(data.message, 'success');
                     // 重新加载页面以更新状态
                     setTimeout(() => {
@@ -1812,6 +1978,8 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    // 清除模拟登录的用户ID
+                    sessionStorage.removeItem('impersonated_user_id');
                     showToast(data.message, 'success');
                     // 重新加载页面以更新状态
                     setTimeout(() => {
@@ -2077,22 +2245,70 @@
                         select.innerHTML = '<option value="">请选择用户</option>' +
                             (data.data || []).map(u => `<option value="${u.id}">${u.username}</option>`).join('');
                     } else if (select && !isAdmin) {
-                        const currentUserId = getCookie('admin_user_id');
-                        select.innerHTML = `<option value="${currentUserId}">${currentUsername}</option>`;
-                        select.value = currentUserId;
+                        // 优先从变量获取，如果没有则从 localStorage 获取
+                        let userIdToSet = currentUserId;
+                        if (!userIdToSet) {
+                            const savedUserId = localStorage.getItem('admin_user_id');
+                            if (savedUserId) {
+                                userIdToSet = parseInt(savedUserId);
+                                currentUserId = userIdToSet;
+                            }
+                        }
+                        if (userIdToSet) {
+                            select.innerHTML = `<option value="${userIdToSet}">${currentUsername}</option>`;
+                            select.value = userIdToSet;
+                        }
                     }
                 }
             } catch (e) {}
         }
 
-        function openIncomeModal() {
+        async function openIncomeModal() {
             editingIncomeId = null;
             document.getElementById('incomeModalTitle').textContent = '➕ 添加收入';
             document.getElementById('incomeModalSubtitle').textContent = '填写收入信息';
             document.getElementById('incomeSubmitBtn').textContent = '确认添加';
+            
+            // 根据权限处理用户选择
+            const incomeUserId = document.getElementById('incomeUserId');
+            let userIdToSet = null;
+            if (!isAdmin) {
+                // 非管理员：移除 required 属性并获取当前用户ID
+                incomeUserId.required = false;
+                
+                // 对于非管理员，总是从服务器获取用户ID，确保准确性
+                // 这样可以处理模拟登录的情况（original_admin_id cookie 是 HttpOnly，无法读取）
+                console.log('非管理员（收入）：从服务器获取用户ID，currentUsername:', currentUsername, 'currentUserId:', currentUserId);
+                currentUserId = null; // 清除旧的用户ID，强制从服务器获取
+                await loadCurrentUserIdFromServer();
+                if (currentUserId) {
+                    userIdToSet = currentUserId;
+                    console.log('非管理员（收入）：获取用户ID为:', userIdToSet);
+                } else {
+                    console.error('非管理员（收入）：无法获取当前用户ID，currentUsername:', currentUsername);
+                    // 如果服务器获取失败，尝试从 localStorage 获取（降级方案）
+                    const savedUserId = localStorage.getItem('admin_user_id');
+                    if (savedUserId) {
+                        userIdToSet = parseInt(savedUserId);
+                        currentUserId = userIdToSet;
+                        console.log('非管理员（收入）：使用 localStorage 中的用户ID:', userIdToSet);
+                    }
+                }
+            } else {
+                // 管理员：需要选择用户
+                incomeUserId.required = true;
+            }
+            
             document.getElementById('incomeForm').reset();
+            
             const now = new Date();
             document.getElementById('incomeTime').value = formatDateTimeLocal(now);
+            
+            // 重置后重新设置用户ID（非管理员）
+            if (!isAdmin && userIdToSet) {
+                incomeUserId.value = userIdToSet;
+            }
+            
             loadUsersForIncomeSelect();
             document.getElementById('incomeModal').classList.add('show');
         }
@@ -2117,11 +2333,30 @@
 
         document.getElementById('incomeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const userId = parseInt(document.getElementById('incomeUserId').value);
+            // 对于非管理员，自动获取当前用户ID
+            let userId = parseInt(document.getElementById('incomeUserId').value);
+            if ((!userId || isNaN(userId)) && !isAdmin) {
+                // 优先从变量获取，如果没有则从 localStorage 获取
+                if (currentUserId) {
+                    userId = currentUserId;
+                } else {
+                    const savedUserId = localStorage.getItem('admin_user_id');
+                    if (savedUserId) {
+                        userId = parseInt(savedUserId);
+                        currentUserId = userId;
+                    } else {
+                        // 如果都没有，尝试从服务器获取
+                        await loadCurrentUserIdFromServer();
+                        if (currentUserId) {
+                            userId = currentUserId;
+                        }
+                    }
+                }
+            }
             const amount = parseFloat(document.getElementById('incomeAmount').value);
             const type = (document.getElementById('incomeType').value || '').trim();
             const timeStr = document.getElementById('incomeTime').value;
-            if (!userId || !amount || !type || !timeStr) {
+            if (!userId || isNaN(userId) || !amount || !type || !timeStr) {
                 showToast('请填写所有必填项', 'warning');
                 return;
             }
@@ -2315,17 +2550,80 @@
             renderCategoryOptions(document.getElementById('expenseCategory'), false);
         }
 
-        function openExpenseModal() {
+        async function openExpenseModal() {
             editingExpenseId = null;
             document.getElementById('expenseModalTitle').textContent = '➕ 添加消费记录';
             document.getElementById('expenseModalSubtitle').textContent = '填写消费记录信息';
             document.getElementById('expenseSubmitBtn').textContent = '确认添加';
+            
+            // 根据权限处理用户选择（在重置之前设置，避免被重置清除）
+            const expenseUserId = document.getElementById('expenseUserId');
+            let userIdToSet = null;
+            if (!isAdmin) {
+                // 非管理员：移除 required 属性并获取当前用户ID
+                expenseUserId.required = false;
+                
+                // 检查是否在模拟登录状态（通过 sessionStorage）
+                const impersonatedUserId = sessionStorage.getItem('impersonated_user_id');
+                const isImpersonating = impersonatedUserId && impersonatedUserId !== '';
+                
+                if (isImpersonating) {
+                    // 模拟登录时，优先使用 sessionStorage 中的用户ID
+                    userIdToSet = parseInt(impersonatedUserId);
+                    currentUserId = userIdToSet;
+                    console.log('模拟登录：使用 sessionStorage 中的用户ID:', userIdToSet);
+                    // 同时从服务器验证一次，确保准确性
+                    await loadCurrentUserIdFromServer();
+                    if (currentUserId && currentUserId !== userIdToSet) {
+                        console.warn('模拟登录：服务器返回的用户ID与 sessionStorage 不一致，使用服务器返回的ID');
+                        userIdToSet = currentUserId;
+                    }
+                } else {
+                    // 正常登录时，从服务器获取用户ID
+                    console.log('非管理员：从服务器获取用户ID，currentUsername:', currentUsername, 'currentUserId:', currentUserId);
+                    if (!currentUserId) {
+                        await loadCurrentUserIdFromServer();
+                    }
+                    if (currentUserId) {
+                        userIdToSet = currentUserId;
+                        console.log('非管理员：获取用户ID为:', userIdToSet);
+                    } else {
+                        console.error('非管理员：无法获取当前用户ID，currentUsername:', currentUsername);
+                        // 如果服务器获取失败，尝试从 localStorage 获取（降级方案）
+                        const savedUserId = localStorage.getItem('admin_user_id');
+                        if (savedUserId) {
+                            userIdToSet = parseInt(savedUserId);
+                            currentUserId = userIdToSet;
+                            console.log('非管理员：使用 localStorage 中的用户ID:', userIdToSet);
+                        }
+                    }
+                }
+            } else {
+                // 管理员：需要选择用户
+                expenseUserId.required = true;
+            }
+            
             document.getElementById('expenseForm').reset();
+            
             // 设置默认时间为当前时间
             const now = new Date();
             document.getElementById('expenseTime').value = formatDateTimeLocal(now);
-            loadUsersForSelect();
-            refreshExpenseCategorySelectors();
+            
+            // 重置后重新设置用户ID（非管理员）
+            if (!isAdmin && userIdToSet) {
+                expenseUserId.value = userIdToSet;
+                console.log('非管理员：设置用户ID为:', userIdToSet);
+            } else if (isAdmin) {
+                loadUsersForSelect();
+            }
+            
+            // 确保非管理员时 required 属性被移除
+            if (!isAdmin) {
+                expenseUserId.required = false;
+            }
+            
+            // 等待类别加载完成后再显示模态框
+            await refreshExpenseCategorySelectors();
             document.getElementById('expenseModal').classList.add('show');
         }
 
@@ -2355,14 +2653,49 @@
 
         document.getElementById('expenseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const userId = parseInt(document.getElementById('expenseUserId').value);
+            console.log('表单提交开始，isAdmin:', isAdmin);
+            
+            // 对于非管理员，自动获取当前用户ID
+            let userId = parseInt(document.getElementById('expenseUserId').value);
+            console.log('初始 userId:', userId);
+            
+            if ((!userId || isNaN(userId)) && !isAdmin) {
+                // 优先从变量获取，如果没有则从 localStorage 获取
+                if (currentUserId) {
+                    userId = currentUserId;
+                    console.log('从变量获取用户ID:', userId);
+                } else {
+                    const savedUserId = localStorage.getItem('admin_user_id');
+                    if (savedUserId) {
+                        userId = parseInt(savedUserId);
+                        currentUserId = userId;
+                        console.log('从 localStorage 获取用户ID:', userId);
+                    } else {
+                        // 如果都没有，尝试从服务器获取
+                        await loadCurrentUserIdFromServer();
+                        if (currentUserId) {
+                            userId = currentUserId;
+                            console.log('从服务器获取用户ID:', userId);
+                        }
+                    }
+                }
+            }
+            
             const amount = parseFloat(document.getElementById('expenseAmount').value);
             const category = document.getElementById('expenseCategory').value;
             const description = document.getElementById('expenseDescription').value;
             const expenseTime = document.getElementById('expenseTime').value;
 
-            if (!userId || !amount || !category || !expenseTime) {
-                showToast('请填写所有必填项', 'warning');
+            console.log('表单数据:', { userId, amount, category, description, expenseTime });
+
+            // 验证类别是否已选择（不能为空字符串）
+            if (!userId || isNaN(userId) || !amount || !category || category.trim() === '' || !expenseTime) {
+                console.error('表单验证失败:', { userId, amount, category, expenseTime });
+                if (!category || category.trim() === '') {
+                    showToast('请选择消费类别', 'warning');
+                } else {
+                    showToast('请填写所有必填项', 'warning');
+                }
                 return;
             }
 
@@ -2374,10 +2707,13 @@
                 expense_time: formatDateTimeForApi(expenseTime)
             };
 
+            console.log('准备发送数据:', data);
+
             try {
                 let res;
                 if (editingExpenseId) {
                     // 编辑模式
+                    console.log('编辑模式，ID:', editingExpenseId);
                     res = await fetch(`/admin/expenses/${editingExpenseId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -2385,23 +2721,28 @@
                     });
                 } else {
                     // 添加模式
+                    console.log('添加模式，发送 POST 请求到 /admin/expenses');
                     res = await fetch('/admin/expenses', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
                 }
+                console.log('请求响应状态:', res.status, res.statusText);
                 const result = await res.json();
+                console.log('服务器响应:', result);
                 if (result.success) {
                     showToast(result.message, 'success');
                     closeExpenseModal();
                     loadExpenses();
                     loadStatistics();
                 } else {
-                    showToast(result.message, 'error');
+                    console.error('服务器返回错误:', result);
+                    showToast(result.message || '操作失败', 'error');
                 }
             } catch (err) {
-                showToast('操作失败', 'error');
+                console.error('提交表单时发生错误:', err);
+                showToast('操作失败: ' + (err.message || '未知错误'), 'error');
             }
         });
 
@@ -2587,6 +2928,29 @@
                     if (select) {
                         select.innerHTML = '<option value="">全部用户</option>';
                         allUsers.forEach(user => {
+                            const option = document.createElement('option');
+                            option.value = user.id;
+                            option.textContent = user.username + (user.is_admin ? ' (管理员)' : '');
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('加载用户列表失败:', e);
+            }
+        }
+
+        // ===== 账单统计功能 =====
+        async function loadUsersForStatistics() {
+            if (!isAdmin) return; // 非管理员不需要加载用户列表
+            try {
+                const res = await fetch('/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('statUserId');
+                    if (select) {
+                        select.innerHTML = '<option value="">全部用户</option>';
+                        (data.data || []).forEach(user => {
                             const option = document.createElement('option');
                             option.value = user.id;
                             option.textContent = user.username + (user.is_admin ? ' (管理员)' : '');
@@ -3090,6 +3454,10 @@
             } catch (e) {
                 console.error('加载类别列表失败:', e);
             }
+            // 如果是管理员，加载用户列表
+            if (isAdmin) {
+                await loadUsersForStatistics();
+            }
             // 设置默认时间
             setDefaultStatisticsDates();
             // 初始化完成后自动加载数据
@@ -3208,6 +3576,13 @@
             document.getElementById('statRangeType').value = 'month';
             onStatRangeTypeChange();
             setDefaultStatisticsDates();
+            // 重置用户筛选（仅管理员）
+            if (isAdmin) {
+                const statUserId = document.getElementById('statUserId');
+                if (statUserId) {
+                    statUserId.value = '';
+                }
+            }
             // 取消所有类别选择
             document.querySelectorAll('#categoryDrawerBody input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
@@ -3249,6 +3624,14 @@
                 url += '&start_time=' + encodeURIComponent(startDate) + '&end_time=' + encodeURIComponent(endDate);
             }
 
+            // 添加用户筛选（仅管理员）
+            if (isAdmin) {
+                const userId = document.getElementById('statUserId')?.value || '';
+                if (userId) {
+                    url += '&user_id=' + encodeURIComponent(userId);
+                }
+            }
+            
             // 添加类别筛选
             const selectedCategories = getSelectedCategories();
             if (selectedCategories.length > 0) {
