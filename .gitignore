@@ -1,3 +1,11 @@
 .history
 .idea
 finance-linux-amd64
+
+# local config (do not commit)
+config.yaml
+config/config.yaml
+config/local.yaml
+config/*.local.yaml
+.env
+.env.*

@@ -1,10 +1,12 @@
 # 记账系统默认配置（嵌入到二进制文件中）
+# 注意：此文件会被提交到 GitHub，因此不要在这里填写任何真实密钥/密码。
+# 真实配置请在本地创建 `config.yaml`（或通过环境变量 FINANCE_* 覆盖）。
 
 # 服务器配置
 server:
   port: ":8811"
   mode: "release"
-  base_url: "http://127.0.0.1:8811"
+  base_url: "http://localhost:8811"
 
 # 数据库配置
 database:
@@ -17,15 +19,17 @@ database:
 
 # JWT配置
 jwt:
-  secret: "finance-xxx"
+  # 生产环境必须在外部 `config.yaml` 或环境变量中设置为随机强密钥
+  secret: "please-change-me"
   expire_hours: 24
 
 # 邮件配置
 email:
-  enabled: true
+  # 默认关闭：真实 SMTP 配置仅放在本地 `config.yaml` 或环境变量中
+  enabled: false
   host: "smtp.qq.com"
   port: 465
-  username: "email@qq.com"
-  password: "password"
+  username: ""
+  password: ""
   from: "记账系统"
 
