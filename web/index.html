@@ -6,32 +6,41 @@
     <title>记账系统 - 后台管理</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        /* 默认深色主题 */
+        /* 默认深色主题 (Titanium 风格) */
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --primary-light: #3b82f6;
-            --secondary: #64748b;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --info: #3b82f6;
-            --bg-main: #0f172a;
-            --bg-card: #1e293b;
-            --bg-input: #334155;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border: #334155;
-            --shadow: 0 10px 40px rgba(0,0,0,0.3);
-            --gradient-primary: linear-gradient(135deg, #2563eb, #1d4ed8);
-            --gradient-success: linear-gradient(135deg, #10b981, #059669);
-            --gradient-warning: linear-gradient(135deg, #f59e0b, #d97706);
-            --gradient-danger: linear-gradient(135deg, #ef4444, #dc2626);
-            --glow-primary: 0 0 20px rgba(37, 99, 235, 0.4);
+            --primary: #e5e7eb;
+            --primary-dark: #d1d5db;
+            --primary-light: #f9fafb;
+            --secondary: #6b7280;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --info: #60a5fa;
+            --bg-main: #0a0a0a;
+            --bg-card: #111;
+            --bg-card-gradient: linear-gradient(to bottom, #1a1a1a, #111);
+            --bg-input: #111;
+            --bg-sidebar: #0f0f0f;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border: #222;
+            --border-hover: #333;
+            --shadow: 0 10px 30px rgba(0,0,0,0.5);
+            --shadow-card: 0 4px 20px rgba(0,0,0,0.4);
+            --gradient-primary: linear-gradient(135deg, #374151, #1f2937);
+            --gradient-success: linear-gradient(135deg, #1a2e1a, #2a4a2a);
+            --gradient-warning: linear-gradient(135deg, #2e251a, #4a3a2a);
+            --gradient-danger: linear-gradient(135deg, #2e1a1a, #4a2a2a);
+            --glow-primary: 0 0 15px rgba(229, 231, 235, 0.2);
         }
+        .font-tech { font-family: 'Rajdhani', 'Noto Sans SC', sans-serif; }
+        .font-display { font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif; }
         
         /* 浅色主题 */
         [data-theme="light"] {
@@ -128,85 +137,74 @@
             --gradient-danger: linear-gradient(135deg, #ef4444, #dc2626);
             --glow-primary: 0 0 20px rgba(245, 158, 11, 0.5);
         }
+        .fa, .fas, .far, .fal, .fab { font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            /* 右上角工具栏安全区：避免遮挡页面头部按钮/徽章 */
-            --top-toolbar-safe-top: 64px;   /* 工具栏高度 + 间距 */
-            --top-toolbar-safe-right: 320px;/* 工具栏宽度 + 间距（桌面端） */
-        }
-        body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg-main); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background-color 0.3s ease, color 0.3s ease; position: relative; }
-        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 20% 50%, rgba(37, 99, 235, 0.03) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+        :root { --top-toolbar-safe-top: 64px; --top-toolbar-safe-right: 320px; }
+        body { font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-main); color: var(--text-primary); min-height: 100vh; line-height: 1.6; transition: background-color 0.3s ease, color 0.3s ease; position: relative; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 24px 24px; opacity: 0.03; pointer-events: none; z-index: 0; }
         .app-container, .main-content { position: relative; z-index: 1; }
-        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--bg-main) 0%, var(--bg-card) 50%, var(--bg-main) 100%); position: relative; overflow: hidden; transition: background 0.3s ease; }
-        .login-container::before { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%); top: -200px; right: -200px; }
-        .login-container::after { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%); bottom: -100px; left: -100px; }
-        .login-box { background: var(--bg-card); padding: 48px; border-radius: 24px; box-shadow: var(--shadow); width: 100%; max-width: 420px; position: relative; z-index: 1; border: 1px solid var(--border); }
-        .login-box h1 { text-align: center; margin-bottom: 8px; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary-light), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #111; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg-main); position: relative; overflow: hidden; transition: background 0.3s ease; }
+        .login-container::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 24px 24px; opacity: 0.04; pointer-events: none; }
+        .login-box { background: linear-gradient(to bottom, #1a1a1a, #111); padding: 48px; border-radius: 8px; box-shadow: var(--shadow); width: 100%; max-width: 420px; position: relative; z-index: 1; border: 1px solid var(--border); }
+        .login-box h1 { text-align: center; margin-bottom: 8px; font-size: 28px; font-weight: 600; font-family: 'Space Grotesk', sans-serif; color: var(--text-primary); letter-spacing: 0.05em; }
         .login-box p { text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 14px; }
         .login-alert { display: none; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.12); color: #fecaca; font-size: 13px; line-height: 1.4; }
         .login-alert.show { display: block; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); font-size: 14px; }
-        .form-group input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 15px; background: var(--bg-input); color: var(--text-primary); transition: all 0.3s ease; }
-        .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15); }
-        .btn { padding: 14px 24px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-        /* 默认按钮宽度自适应；登录页再单独设为 100% */
-        .btn-primary { background: var(--gradient-primary); color: white; width: auto; position: relative; overflow: hidden; }
+        .form-group input { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: all 0.2s ease; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .form-group input:focus { outline: none; border-color: #555; background: #161616; }
+        .btn { padding: 12px 20px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; font-weight: 600; font-family: 'Rajdhani', sans-serif; letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: #e5e7eb; color: #0a0a0a; width: auto; border-color: #555; }
         .login-box .btn-primary { width: 100%; }
-        .btn-primary::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
-        .btn-primary:hover::before { left: 100%; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--glow-primary); }
-        .btn-success { background: var(--gradient-success); color: white; position: relative; overflow: hidden; }
-        .btn-success::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
-        .btn-success:hover::before { left: 100%; }
-        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35); }
-        .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); position: relative; overflow: hidden; }
-        .btn-secondary:hover { background: var(--border); transform: translateY(-1px); }
-        .btn-warning { background: var(--gradient-warning); color: white; position: relative; overflow: hidden; }
-        .btn-warning::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
-        .btn-warning:hover::before { left: 100%; }
-        .btn-warning:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(245, 158, 11, 0.35); }
-        .btn-danger { background: var(--gradient-danger); color: white; position: relative; overflow: hidden; }
-        .btn-danger::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
-        .btn-danger:hover::before { left: 100%; }
-        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(239, 68, 68, 0.35); }
+        .btn-primary:hover { background: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+        .btn-success { background: #4ade80; color: #0a0a0a; border-color: #2a4a2a; }
+        .btn-success:hover { background: #22c55e; box-shadow: 0 0 15px rgba(74, 222, 128, 0.3); }
+        .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: #161616; border-color: var(--border-hover); }
+        .btn-warning { background: #fbbf24; color: #0a0a0a; border-color: #4a3a2a; }
+        .btn-warning:hover { box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); }
+        .btn-danger { background: #f87171; color: #0a0a0a; border-color: #4a2a2a; }
+        .btn-danger:hover { background: #ef4444; box-shadow: 0 0 15px rgba(248, 113, 113, 0.3); }
         .btn-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; position: relative; overflow: hidden; }
         .btn-info::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s; }
         .btn-info:hover::before { left: 100%; }
         .btn-info:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35); }
         .btn-sm { padding: 8px 16px; font-size: 13px; }
-        .link-btn { background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 14px; text-decoration: underline; margin-top: 16px; display: block; text-align: center; }
-        .link-btn:hover { color: var(--primary); }
-        .app-container { display: none; min-height: 100vh; }
-        .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: var(--bg-card); border-right: 1px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; overflow: hidden; }
-        .sidebar::before { content: ''; position: absolute; top: 0; right: 0; width: 1px; height: 100%; background: var(--gradient-primary); opacity: 0.3; }
-        .logo { display: flex; align-items: center; gap: 12px; padding: 0 12px 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
-        .logo-icon { width: 42px; height: 42px; background: linear-gradient(135deg, var(--primary), var(--success)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-        .logo-text { font-size: 18px; font-weight: 700; }
-        .nav-menu { flex: 1; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; color: var(--text-secondary); margin-bottom: 4px; }
-        .nav-item:hover { background: var(--bg-input); color: var(--text-primary); }
-        .nav-item.active { background: var(--gradient-primary); color: white; box-shadow: var(--glow-primary); position: relative; }
-        .nav-item.active::after { content: ''; position: absolute; right: 12px; width: 4px; height: 60%; background: rgba(255,255,255,0.5); border-radius: 2px; }
-        .nav-item svg { width: 20px; height: 20px; }
-        /* 右上角工具栏 */
-        /* 右上角工具栏：层级低于 modal/drawer，避免盖住弹框；并通过安全区让页面头部内容不被遮挡 */
-        .top-toolbar { position: fixed; top: 18px; right: 18px; z-index: 900; display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; box-shadow: var(--shadow); }
+        .link-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 14px; text-decoration: underline; margin-top: 16px; display: block; text-align: center; transition: color 0.2s; }
+        .link-btn:hover { color: #e5e7eb; }
+        .app-container { display: none; min-height: 100vh; background: var(--bg-main); }
+        .sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 20; }
+        .logo { display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--border); height: 80px; }
+        .logo-icon { width: 40px; height: 40px; background: linear-gradient(to bottom right, #374151, #000); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2); border: 1px solid #333; }
+        .logo-text { font-size: 20px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; letter-spacing: 0.15em; color: var(--text-primary); text-transform: uppercase; }
+        .nav-menu { flex: 1; overflow-y: auto; padding: 24px 12px; }
+        .nav-menu.custom-scroll::-webkit-scrollbar { width: 4px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; color: var(--text-muted); margin-bottom: 4px; border: 1px solid transparent; position: relative; overflow: hidden; }
+        .nav-item:hover { background: #161616; color: var(--text-secondary); border-color: var(--border); }
+        .nav-item.active { background: #1a1a1a; color: var(--text-primary); border: 1px solid #333; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); position: relative; }
+        .nav-item .fa, .nav-item svg { width: 24px; text-align: center; flex-shrink: 0; }
+        .nav-item span.nav-text { font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.05em; }
+        .top-toolbar { position: fixed; top: 18px; right: 18px; z-index: 900; display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; box-shadow: var(--shadow-card); }
         .user-info-compact { display: flex; align-items: center; gap: 10px; padding-right: 10px; border-right: 1px solid var(--border); }
-        .user-avatar-compact { width: 36px; height: 36px; background: var(--gradient-primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: white; flex-shrink: 0; }
+        .user-avatar-compact { width: 36px; height: 36px; background: linear-gradient(to bottom right, #374151, #1f2937); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: #e5e7eb; flex-shrink: 0; border: 1px solid #333; }
         .user-details-compact { display: flex; flex-direction: column; gap: 2px; }
         .user-name-compact { font-weight: 600; font-size: 13px; color: var(--text-primary); line-height: 1.2; }
         .user-role-compact { font-size: 11px; color: var(--text-secondary); line-height: 1.2; }
         .top-toolbar-btn { width: 36px; height: 36px; border-radius: 10px; background: transparent; border: none; color: var(--text-primary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
-        .top-toolbar-btn:hover { background: var(--bg-input); color: var(--primary-light); transform: translateY(-1px); }
+        .top-toolbar-btn:hover { background: #161616; color: #e5e7eb; transform: translateY(-1px); }
         .top-toolbar-btn svg { width: 18px; height: 18px; }
         
         /* 主题切换（右上角按钮 + 弹框） */
         .theme-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .theme-option { position: relative; padding: 12px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.3s ease; background: var(--bg-input); }
-        .theme-option:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow); }
-        .theme-option.active { border-color: var(--primary); background: var(--gradient-primary); box-shadow: var(--glow-primary); }
-        .theme-option.active .theme-name { color: white; font-weight: 700; }
+        .theme-option { position: relative; padding: 12px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.3s ease; background: var(--bg-input); }
+        .theme-option:hover { border-color: #555; transform: translateY(-2px); box-shadow: var(--shadow-card); }
+        .theme-option.active { border-color: #e5e7eb; background: #1a1a1a; box-shadow: 0 0 15px rgba(229, 231, 235, 0.15); }
+        .theme-option.active .theme-name { color: var(--text-primary); font-weight: 700; }
         .theme-preview { display: flex; gap: 6px; margin-bottom: 8px; }
         .theme-color { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); }
         .theme-name { font-size: 12px; color: var(--text-secondary); text-align: center; font-weight: 600; letter-spacing: 0.3px; user-select: none; }
@@ -218,44 +216,40 @@
         .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* 徽章组件 */
-        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-primary { background: rgba(37, 99, 235, 0.15); color: var(--primary-light); }
-        .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: monospace; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid; }
+        .badge-primary { background: #1a1a1a; color: var(--text-secondary); border-color: #333; }
+        .badge-success { background: #1a2e1a; color: #4ade80; border-color: #2a4a2a; }
+        .badge-warning { background: #2e251a; color: #fbbf24; border-color: #4a3a2a; }
+        .badge-danger { background: #2e1a1a; color: #f87171; border-color: #4a2a2a; }
         
-        /* 卡片增强 */
-        .enhanced-card { background: var(--bg-card); border-radius: 16px; padding: 24px; border: 1px solid var(--border); position: relative; overflow: hidden; }
-        .enhanced-card::after { content: ''; position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(37, 99, 235, 0.05) 0%, transparent 70%); pointer-events: none; }
+        .enhanced-card { background: var(--bg-card-gradient); border-radius: 4px; padding: 24px; border: 1px solid var(--border); position: relative; overflow: hidden; box-shadow: var(--shadow-card); }
         
-        /* 输入框增强 */
-        .form-group input:focus, .filter-item input:focus, .filter-item select:focus { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), var(--glow-primary); }
+        .form-group input:focus, .filter-item input:focus, .filter-item select:focus { box-shadow: none; }
         .user-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, var(--warning), var(--danger)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
         .user-details { flex: 1; }
         .user-name { font-weight: 600; font-size: 14px; }
         .user-role { font-size: 12px; color: var(--text-secondary); }
         .logout-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.2s ease; }
         .logout-btn:hover { background: var(--danger); color: white; }
-        .main-content { margin-left: 260px; padding: calc(32px + var(--top-toolbar-safe-top)) 32px 32px 32px; min-height: 100vh; overflow: visible; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; position: relative; padding-bottom: 16px; padding-right: var(--top-toolbar-safe-right); }
-        .page-header::after { content: ''; position: absolute; bottom: 0; left: 0; width: 60px; height: 3px; background: var(--gradient-primary); border-radius: 2px; }
-        .page-title { font-size: 28px; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .page-subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+        .main-content { margin-left: 260px; padding: calc(32px + var(--top-toolbar-safe-top)) 32px 32px 32px; min-height: 100vh; overflow: visible; position: relative; }
+        .main-content::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(#444 1px, transparent 1px); background-size: 24px 24px; opacity: 0.03; pointer-events: none; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; position: relative; padding-bottom: 16px; padding-right: var(--top-toolbar-safe-right); border-bottom: 1px solid var(--border); }
+        .page-title { font-size: 24px; font-weight: 400; font-family: 'Space Grotesk', sans-serif; color: var(--text-primary); letter-spacing: 0.02em; }
+        .page-subtitle { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 32px; }
-        .stat-card { background: var(--bg-card); border-radius: 16px; padding: 24px; border: 1px solid var(--border); transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gradient-primary); transform: scaleX(0); transition: transform 0.3s ease; }
-        .stat-card:hover::before { transform: scaleX(1); }
-        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow), var(--glow-primary); }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 24px; }
-        .stat-icon.blue { background: rgba(37, 99, 235, 0.15); color: var(--primary-light); }
-        .stat-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-        .stat-icon.orange { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-        .stat-icon.red { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .stat-value { font-size: 32px; font-weight: 700; margin-bottom: 4px; }
-        .stat-label { color: var(--text-secondary); font-size: 14px; }
-        .filter-bar { background: var(--bg-card); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border); position: relative; overflow: hidden; }
-        .filter-bar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gradient-primary); opacity: 0.3; }
+        .stat-card { background: var(--bg-card-gradient); border-radius: 4px; padding: 24px; border: 1px solid var(--border); transition: all 0.3s ease; position: relative; overflow: hidden; box-shadow: var(--shadow); }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 1px; background: linear-gradient(to right, transparent, #555, transparent); opacity: 0.2; transition: opacity 0.3s; }
+        .stat-card:hover { border-color: #555; }
+        .stat-card:hover::before { opacity: 0.5; }
+        .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 18px; color: var(--text-muted); transition: color 0.2s; }
+        .stat-card:hover .stat-icon { color: var(--text-secondary); }
+        .stat-icon.blue { color: var(--text-muted); }
+        .stat-icon.green { color: var(--text-muted); }
+        .stat-icon.orange { color: var(--text-muted); }
+        .stat-icon.red { color: var(--text-muted); }
+        .stat-value { font-size: 28px; font-weight: 500; font-family: 'Space Grotesk', sans-serif; margin-bottom: 4px; color: var(--text-primary); }
+        .stat-label { color: var(--text-muted); font-size: 12px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
+        .filter-bar { background: var(--bg-card); border-radius: 4px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border); position: relative; overflow: hidden; box-shadow: var(--shadow-card); }
         /* 筛选栏：桌面端保持同一行（超出时横向滚动），避免“查询/添加”被挤到下一行 */
         .filter-row { display: flex; gap: 16px; flex-wrap: nowrap; align-items: flex-end; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
         .filter-row::-webkit-scrollbar { height: 6px; }
@@ -263,27 +257,25 @@
         .filter-row::-webkit-scrollbar-track { background: transparent; }
         .filter-item { flex: 1; min-width: 180px; }
         .filter-item label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
-        .filter-item input, .filter-item select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: all 0.2s ease; }
+        .filter-item input, .filter-item select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; background: var(--bg-input); color: var(--text-primary); transition: all 0.2s ease; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
         .filter-item input:focus, .filter-item select:focus { outline: none; border-color: var(--primary); }
         .filter-actions { display: flex; gap: 12px; flex: 0 0 auto; white-space: nowrap; }
         .filter-actions .btn { white-space: nowrap; }
         /* 筛选栏按钮：去掉全局 btn-primary 的 width:100% 影响，并缩小“查询”按钮 */
         .filter-actions .btn { width: auto; padding: 10px 14px; font-size: 14px; border-radius: 10px; }
         .filter-actions .btn.btn-primary { padding: 10px 12px; }
-        .data-table-container { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); position: relative; overflow: visible; }
+        .data-table-container { background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border); position: relative; overflow: visible; box-shadow: var(--shadow-card); }
         .data-table-container .data-table { overflow: visible; }
         /* 确保表格单元格可以显示下拉菜单 */
         .data-table td { overflow: visible; position: relative; }
         /* 确保操作列的下拉菜单不被裁剪 */
         .data-table td:last-child { overflow: visible; }
-        .data-table-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--gradient-primary); opacity: 0.5; }
         .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { background: var(--bg-input); padding: 16px 20px; text-align: left; font-weight: 600; font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; position: relative; }
-        .data-table th::after { content: ''; position: absolute; bottom: 0; left: 20px; right: 20px; height: 2px; background: var(--gradient-primary); opacity: 0.3; }
-        .data-table td { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; transition: all 0.2s ease; }
+        .data-table th { background: #161616; padding: 12px 24px; text-align: left; font-weight: 500; font-size: 10px; font-family: 'Rajdhani', monospace; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.15em; border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 16px 24px; border-bottom: 1px solid #1a1a1a; font-size: 14px; font-family: ui-monospace, monospace; color: var(--text-secondary); transition: all 0.2s ease; }
         .data-table tr:last-child td { border-bottom: none; }
         .data-table tr { transition: background-color 0.2s ease; position: relative; transform: none !important; }
-        .data-table tr:hover td { background: rgba(37, 99, 235, 0.08); }
+        .data-table tr:hover td { background: #1a1a1a; }
         /* 移除 transform 以避免创建新的层叠上下文，这会导致下拉菜单被遮挡 */
         /* 确保操作列的下拉菜单容器有正确的 z-index */
         .data-table td:last-child { position: relative; z-index: 1; }
@@ -301,28 +293,26 @@
         .category-tag.教育 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
         .category-tag.住房 { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; }
         .category-tag.其他 { background: rgba(100, 116, 139, 0.15); color: #94a3b8; }
-        .amount { font-weight: 600; color: var(--danger); }
+        .amount { font-weight: 600; color: #f87171; font-family: monospace; }
         .pagination { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-top: 1px solid var(--border); }
         .pagination-info { color: var(--text-secondary); font-size: 14px; }
         .pagination-buttons { display: flex; gap: 8px; }
-        .page-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; font-size: 14px; }
-        .page-btn:hover:not(:disabled) { background: var(--primary); border-color: var(--primary); }
+        .page-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; font-size: 13px; font-family: monospace; }
+        .page-btn:hover:not(:disabled) { background: #161616; border-color: #555; }
         .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .page-btn.active { background: var(--primary); border-color: var(--primary); }
+        .page-btn.active { background: #222; border-color: #333; color: var(--text-primary); }
         .page-content { display: none; }
         .page-content.active { display: block; }
-        .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; animation: toastSlideIn 0.3s ease; box-shadow: var(--shadow); overflow: hidden; }
-        .toast::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.3); }
-        .toast.success { background: var(--gradient-success); }
-        .toast.error { background: var(--gradient-danger); }
-        .toast.warning { background: var(--gradient-warning); }
+        .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); padding: 14px 24px; border-radius: 4px; color: #0a0a0a; font-weight: 600; font-family: 'Rajdhani', sans-serif; z-index: 9999; animation: toastSlideIn 0.3s ease; box-shadow: var(--shadow); overflow: hidden; border: 1px solid; }
+        .toast.success { background: #4ade80; border-color: #2a4a2a; }
+        .toast.error { background: #f87171; border-color: #4a2a2a; }
+        .toast.warning { background: #fbbf24; border-color: #4a3a2a; }
         @keyframes toastSlideIn { from { transform: translate(-50%, -100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background: var(--bg-card); border-radius: 16px; padding: 32px; max-width: 450px; width: 90%; border: 1px solid var(--border); position: relative; overflow: hidden; animation: modalSlideIn 0.3s ease; }
-        .modal-content::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gradient-primary); }
+        .modal-content { background: linear-gradient(to bottom, #1a1a1a, #111); border-radius: 4px; padding: 32px; max-width: 450px; width: 90%; border: 1px solid var(--border); position: relative; overflow: hidden; animation: modalSlideIn 0.3s ease; box-shadow: var(--shadow); }
         @keyframes modalSlideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .modal-title { font-size: 18px; font-weight: 600; font-family: 'Space Grotesk', sans-serif; margin-bottom: 8px; letter-spacing: 0.02em; }
         .modal-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
         .modal-actions .btn { flex: 1; }
@@ -337,8 +327,8 @@
         .icon-btn:hover { background: var(--bg-card); transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
         .icon-btn.info { color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); }
         .icon-btn.info:hover { background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; }
-        .icon-btn.danger { color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
-        .icon-btn.danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+        .icon-btn.danger { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
+        .icon-btn.danger:hover { background: rgba(248, 113, 113, 0.1); border-color: #f87171; }
         .icon-btn.secondary { color: var(--text-secondary); border-color: var(--border); }
         .icon-btn.secondary:hover { background: var(--bg-input); color: var(--text-primary); border-color: var(--text-secondary); }
         /* Tooltip 样式 */
@@ -348,26 +338,26 @@
         .email-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: var(--success); color: white; margin-left: 8px; }
         .email-badge.disabled { background: var(--secondary); }
         .chat-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
-        .chat-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .chat-history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; box-shadow: var(--shadow-card); }
         .chat-history-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
         .chat-history-list { max-height: 520px; overflow: auto; padding: 8px; }
         .chat-history-item { padding: 12px 12px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; }
-        .chat-history-item:hover { background: rgba(37, 99, 235, 0.07); border-color: rgba(37, 99, 235, 0.2); }
+        .chat-history-item:hover { background: #1a1a1a; border-color: #333; }
         .chat-history-item .t { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
         .chat-history-item .q { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; min-height: 620px; }
+        .chat-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; min-height: 620px; box-shadow: var(--shadow-card); }
         .chat-panel-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; justify-content: space-between; }
         .chat-messages { padding: 18px 20px; overflow: auto; flex: 1; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)); }
         .chat-msg { max-width: 78%; padding: 12px 14px; border-radius: 14px; margin: 10px 0; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
-        .chat-msg.user { margin-left: auto; background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(37, 99, 235, 0.35); }
-        .chat-msg.ai { margin-right: auto; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.28); }
+        .chat-msg.user { margin-left: auto; background: #1a1a1a; border: 1px solid #333; }
+        .chat-msg.ai { margin-right: auto; background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.25); }
         .chat-msg pre { background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); padding: 12px 12px; border-radius: 12px; overflow: auto; margin: 10px 0; }
         .chat-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace; font-size: 13px; }
         .chat-msg pre code { display: block; white-space: pre; }
         .chat-msg ul { margin: 8px 0 8px 18px; }
         .chat-msg ol { margin: 8px 0 8px 18px; }
         .chat-msg b, .chat-msg strong { font-weight: 700; }
-        .drawer { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: var(--bg-card); border-left: 1px solid var(--border); z-index: 2000; transition: right 0.3s ease; box-shadow: -4px 0 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .drawer { position: fixed; top: 0; right: -400px; width: 400px; height: 100vh; background: linear-gradient(to bottom, #1a1a1a, #111); border-left: 1px solid var(--border); z-index: 2000; transition: right 0.3s ease; box-shadow: -4px 0 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         .drawer.show { right: 0; }
         .drawer-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
         .drawer-title { font-size: 18px; font-weight: 700; }
@@ -386,13 +376,13 @@
             .user-details-compact { display: none; }
             .user-info-compact { padding-right: 0; border-right: none; }
         }
-        .category-checkbox-item:hover { border-color: var(--primary); background: rgba(37, 99, 235, 0.1); }
-        .category-checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+        .category-checkbox-item:hover { border-color: #444; background: #161616; }
+        .category-checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #4ade80; }
         .category-checkbox-item label { flex: 1; cursor: pointer; font-size: 14px; }
-        .category-checkbox-item.selected { border-color: var(--primary); background: rgba(37, 99, 235, 0.15); }
+        .category-checkbox-item.selected { border-color: #444; background: #1a1a1a; }
         .chat-input { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; }
-        .chat-input textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 160px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; }
-        .chat-input textarea:focus { outline: none; border-color: var(--primary); }
+        .chat-input textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 160px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text-primary); font-size: 14px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+        .chat-input textarea:focus { outline: none; border-color: #555; background: #161616; }
         @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } .chat-panel { min-height: 560px; } }
         @media (max-width: 768px) { .sidebar { width: 100%; height: auto; position: relative; } .main-content { margin-left: 0; } .stats-grid { grid-template-columns: 1fr; } .filter-row { flex-direction: column; flex-wrap: nowrap; overflow-x: visible; } .filter-item { width: 100%; } }
@@ -406,7 +396,7 @@
     <!-- 登录页面 -->
     <div class="login-container" id="loginPage">
         <div class="login-box" id="loginBox">
-            <h1>💰 记账系统</h1>
+            <h1><i class="fa-solid fa-wallet" style="margin-right:8px;"></i>记账系统</h1>
             <p>后台管理系统，请登录以继续</p>
             <form id="loginForm">
                 <div class="form-group">
@@ -424,7 +414,7 @@
         </div>
         <!-- 忘记密码 -->
         <div class="login-box" id="forgotBox" style="display:none;">
-            <h1>🔑 忘记密码</h1>
+            <h1><i class="fa-solid fa-key" style="margin-right:8px;"></i>忘记密码</h1>
             <p>输入注册邮箱，我们将发送重置链接</p>
             <form id="forgotForm">
                 <div class="form-group">
@@ -437,7 +427,7 @@
         </div>
         <!-- 重置密码 -->
         <div class="login-box" id="resetBox" style="display:none;">
-            <h1>🔐 重置密码</h1>
+            <h1><i class="fa-solid fa-lock" style="margin-right:8px;"></i>重置密码</h1>
             <p id="resetInfo">请输入新密码</p>
             <form id="resetForm">
                 <div class="form-group">
@@ -458,53 +448,53 @@
     <div class="app-container" id="appContainer">
         <div class="sidebar">
             <div class="logo">
-                <div class="logo-icon">💰</div>
+                <div class="logo-icon"><i class="fa-solid fa-cube" style="font-size:18px;color:#d1d5db;"></i></div>
                 <div class="logo-text">记账管理</div>
             </div>
-            <nav class="nav-menu">
+            <nav class="nav-menu custom-scroll">
                 <div class="nav-item active" data-page="dashboard">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                    数据概览
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span class="nav-text">数据概览</span>
                 </div>
                 <div class="nav-item" data-page="expenses">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    账单管理
+                    <i class="fa-solid fa-receipt"></i>
+                    <span class="nav-text">账单管理</span>
                 </div>
                 <div class="nav-item" data-page="statistics">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M12 17V5M6 17v-3"/></svg>
-                    账单统计
+                    <i class="fa-solid fa-chart-column"></i>
+                    <span class="nav-text">账单统计</span>
                 </div>
                 <div class="nav-item" data-page="users">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    用户管理
+                    <i class="fa-solid fa-users"></i>
+                    <span class="nav-text">用户管理</span>
                 </div>
                 <div class="nav-item" data-page="categories">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><path d="M8 6v12"/></svg>
-                    消费类别
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span class="nav-text">消费类别</span>
                 </div>
                 <div class="nav-item" data-page="income-categories">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><path d="M8 6v12"/></svg>
-                    收入类别
+                    <i class="fa-solid fa-tags"></i>
+                    <span class="nav-text">收入类别</span>
                 </div>
                 <div class="nav-item" data-page="export">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    数据导出
+                    <i class="fa-solid fa-file-export"></i>
+                    <span class="nav-text">数据导出</span>
                 </div>
                 <div class="nav-item" data-page="incomes">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    收入
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                    <span class="nav-text">收入</span>
                 </div>
                 <div class="nav-item" data-page="ai-models">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                    AI模型
-            </div>
+                    <i class="fa-solid fa-cubes"></i>
+                    <span class="nav-text">AI模型</span>
+                </div>
                 <div class="nav-item" data-page="ai-analysis">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    AI分析
+                    <i class="fa-solid fa-brain"></i>
+                    <span class="nav-text">AI分析</span>
                 </div>
                 <div class="nav-item" data-page="ai-chat">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 10h8"/><path d="M8 14h5"/></svg>
-                    AI聊天
+                    <i class="fa-solid fa-comments"></i>
+                    <span class="nav-text">AI聊天</span>
                 </div>
             </nav>
         </div>
@@ -522,31 +512,13 @@
                 </div>
             </div>
             <button class="top-toolbar-btn" id="exitImpersonationBtn" onclick="exitImpersonation()" title="退出模拟登录" style="display:none;background:var(--warning);color:#fff;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
-                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
+                <i class="fa-solid fa-user-slash" style="font-size:18px;"></i>
             </button>
             <button class="top-toolbar-btn" id="themeFab" onclick="openThemeModal()" title="切换主题">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 3v3"/>
-                    <path d="M12 18v3"/>
-                    <path d="M4.22 4.22l2.12 2.12"/>
-                    <path d="M17.66 17.66l2.12 2.12"/>
-                    <path d="M3 12h3"/>
-                    <path d="M18 12h3"/>
-                    <path d="M4.22 19.78l2.12-2.12"/>
-                    <path d="M17.66 6.34l2.12-2.12"/>
-                    <circle cx="12" cy="12" r="4"/>
-                </svg>
+                <i class="fa-solid fa-palette" style="font-size:18px;"></i>
             </button>
             <button class="top-toolbar-btn" onclick="logout()" title="退出登录">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
+                <i class="fa-solid fa-right-from-bracket" style="font-size:18px;"></i>
             </button>
         </div>
         <div class="main-content">
@@ -554,10 +526,10 @@
             <div class="page-content active" id="page-dashboard">
                 <div class="page-header"><div><h1 class="page-title">数据概览</h1><p class="page-subtitle">查看系统整体数据统计</p></div></div>
                 <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-icon blue">💵</div><div class="stat-value" id="statTotalAmount">¥0.00</div><div class="stat-label">总消费金额</div></div>
-                    <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-value" id="statTotalIncome">¥0.00</div><div class="stat-label">总收入金额</div></div>
-                    <div class="stat-card"><div class="stat-icon orange">📝</div><div class="stat-value" id="statTotalCount">0</div><div class="stat-label">消费记录数</div></div>
-                    <div class="stat-card"><div class="stat-icon red">📈</div><div class="stat-value" id="statIncomeCount">0</div><div class="stat-label">收入记录数</div></div>
+                    <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-sack-dollar"></i></div><div class="stat-value" id="statTotalAmount">¥0.00</div><div class="stat-label">总消费金额</div></div>
+                    <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-vault"></i></div><div class="stat-value" id="statTotalIncome">¥0.00</div><div class="stat-label">总收入金额</div></div>
+                    <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-receipt"></i></div><div class="stat-value" id="statTotalCount">0</div><div class="stat-label">消费记录数</div></div>
+                    <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-chart-line"></i></div><div class="stat-value" id="statIncomeCount">0</div><div class="stat-label">收入记录数</div></div>
                 </div>
                 <div class="data-table-container">
                     <table class="data-table"><thead><tr><th>消费类别</th><th>消费金额</th><th>记录数量</th><th>占比</th></tr></thead><tbody id="categoryStatsTable"></tbody></table>
@@ -640,7 +612,7 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
                     <div class="stat-card">
-                        <h3 style="margin-bottom: 16px; font-size: 18px;">📊 总览</h3>
+                        <h3 style="margin-bottom: 16px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.1em;"><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>总览</h3>
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             <div style="display: flex; justify-content: space-between;">
                                 <span style="color: var(--text-secondary);">总金额：</span>
@@ -657,7 +629,7 @@
                         </div>
                     </div>
                     <div class="stat-card">
-                        <h3 style="margin-bottom: 16px; font-size: 18px;">📋 类别统计</h3>
+                        <h3 style="margin-bottom: 16px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.1em;"><i class="fa-solid fa-layer-group" style="margin-right:8px;"></i>类别统计</h3>
                         <div id="statCategoryList" style="max-height: 200px; overflow-y: auto;">
                             <p style="color: var(--text-secondary); text-align: center; padding: 20px;">请点击"查询统计"获取数据</p>
                         </div>
@@ -665,11 +637,11 @@
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
                     <div class="stat-card">
-                        <h3 style="margin-bottom: 16px; font-size: 18px;">🥧 饼图 - 消费类别占比</h3>
+                        <h3 style="margin-bottom: 16px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.1em;"><i class="fa-solid fa-chart-pie" style="margin-right:8px;"></i>饼图 - 消费类别占比</h3>
                         <canvas id="pieChart" style="max-height: 400px;"></canvas>
                     </div>
                     <div class="stat-card">
-                        <h3 style="margin-bottom: 16px; font-size: 18px;">📊 柱状图 - 消费类别金额</h3>
+                        <h3 style="margin-bottom: 16px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.1em;"><i class="fa-solid fa-chart-column" style="margin-right:8px;"></i>柱状图 - 消费类别金额</h3>
                         <canvas id="barChart" style="max-height: 400px;"></canvas>
                     </div>
                 </div>
@@ -766,11 +738,11 @@
                     <div class="filter-row">
                         <div class="filter-item"><label>开始日期 *</label><input type="date" id="exportStartDate" required></div>
                         <div class="filter-item"><label>结束日期 *</label><input type="date" id="exportEndDate" required></div>
-                        <div class="filter-actions"><button class="btn btn-success" onclick="exportExcel()">📥 导出 Excel</button></div>
+                        <div class="filter-actions"><button class="btn btn-success" onclick="exportExcel()"><i class="fa-solid fa-file-export" style="margin-right:6px;"></i>导出 Excel</button></div>
                     </div>
                 </div>
                 <div class="stat-card" style="max-width: 600px;">
-                    <h3 style="margin-bottom: 16px; font-size: 18px;">📋 导出说明</h3>
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 0.1em;"><i class="fa-solid fa-circle-info" style="margin-right:8px;"></i>导出说明</h3>
                     <ul style="color: var(--text-secondary); line-height: 2;">
                         <li>请选择要导出的时间范围</li>
                         <li>导出文件格式为 Excel (.xlsx)</li>
@@ -842,7 +814,7 @@
                         <div class="filter-item"><label>开始日期 *</label><input type="date" id="analysisStartDate" required></div>
                         <div class="filter-item"><label>结束日期 *</label><input type="date" id="analysisEndDate" required></div>
                         <div class="filter-actions">
-                            <button class="btn btn-success" onclick="startAIAnalysis()" id="analysisBtn">🤖 开始分析</button>
+                            <button class="btn btn-success" onclick="startAIAnalysis()" id="analysisBtn"><i class="fa-solid fa-robot" style="margin-right:6px;"></i>开始分析</button>
                             <button class="btn btn-secondary" onclick="refreshAnalysisHistory()">刷新历史</button>
                         </div>
                     </div>
@@ -853,7 +825,7 @@
                             <div style="font-weight:700;">分析历史</div>
                             <button class="btn btn-secondary btn-sm" onclick="refreshAnalysisHistory()">刷新</button>
                         </div>
-                        <div class="chat-history-list" id="analysisHistoryList">
+                        <div class="chat-history-list custom-scroll" id="analysisHistoryList">
                             <div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择AI模型查看历史</div>
                         </div>
                         <div class="pagination" style="border-top:1px solid var(--border);">
@@ -864,12 +836,12 @@
                     <div class="chat-panel">
                         <div class="chat-panel-header">
                             <div style="display:flex;flex-direction:column;gap:2px;">
-                                <div style="font-weight:700;">📊 AI分析结果</div>
+                                <div style="font-weight:700;"><i class="fa-solid fa-chart-line" style="margin-right:6px;"></i>AI分析结果</div>
                                 <div style="font-size:12px;color:var(--text-secondary);">流式输出结束后自动渲染 Markdown</div>
                             </div>
                             <button class="btn btn-secondary btn-sm" onclick="clearAnalysisResult()">清空</button>
                         </div>
-                        <div class="chat-messages" id="aiAnalysisResult" style="white-space: normal;">
+                        <div class="chat-messages custom-scroll" id="aiAnalysisResult" style="white-space: normal;">
                             <div style="color: var(--text-secondary);">请选择AI模型和时间范围，然后点击“开始分析”按钮</div>
                         </div>
                     </div>
@@ -893,7 +865,7 @@
                                 <option value="">请选择AI模型</option>
                             </select>
                         </div>
-                        <div class="chat-history-list" id="chatHistoryList">
+                        <div class="chat-history-list custom-scroll" id="chatHistoryList">
                             <div style="padding:16px;color:var(--text-secondary);text-align:center;">请选择模型查看历史</div>
                         </div>
                     </div>
@@ -905,7 +877,7 @@
                             </div>
                             <button class="btn btn-secondary btn-sm" onclick="clearChatWindow()">清空窗口</button>
                         </div>
-                        <div class="chat-messages" id="chatMessages">
+                        <div class="chat-messages custom-scroll" id="chatMessages">
                             <div style="color:var(--text-secondary);">请选择AI模型，然后开始聊天。</div>
                         </div>
                         <div class="chat-input">
@@ -921,7 +893,7 @@
     <!-- 重置密码模态框 -->
     <div class="modal" id="resetModal">
         <div class="modal-content">
-            <div class="modal-title">🔐 重置用户密码</div>
+            <div class="modal-title"><i class="fa-solid fa-lock" style="margin-right:6px;"></i>重置用户密码</div>
             <div class="modal-subtitle">用户：<span id="resetModalUser"></span></div>
             <div class="form-group">
                 <label>新密码</label>
@@ -937,7 +909,7 @@
     <!-- 添加/编辑消费记录模态框 -->
     <div class="modal" id="expenseModal">
         <div class="modal-content" style="max-width: 520px;">
-            <div class="modal-title" id="expenseModalTitle">➕ 添加消费记录</div>
+            <div class="modal-title" id="expenseModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>添加消费记录</div>
             <div class="modal-subtitle" id="expenseModalSubtitle">填写消费记录信息</div>
             <form id="expenseForm" novalidate>
                 <div class="form-group" id="expenseUserIdGroup">
@@ -977,7 +949,7 @@
     <!-- 删除确认模态框 -->
     <div class="modal" id="deleteModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除</div>
             <div class="modal-subtitle">确定要删除这条消费记录吗？此操作不可恢复。</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
@@ -989,7 +961,7 @@
     <!-- AI模型管理模态框 -->
     <div class="modal" id="aiModelModal">
         <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-title" id="aiModelModalTitle">➕ 添加AI模型</div>
+            <div class="modal-title" id="aiModelModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>添加AI模型</div>
             <div class="modal-subtitle" id="aiModelModalSubtitle">配置AI模型的调用信息</div>
             <form id="aiModelForm">
                 <div class="form-group">
@@ -1015,7 +987,7 @@
     <!-- 删除AI模型确认模态框 -->
     <div class="modal" id="deleteAIModelModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除</div>
             <div class="modal-subtitle">确定要删除这个AI模型配置吗？此操作不可恢复。</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteAIModelModal()">取消</button>
@@ -1027,7 +999,7 @@
     <!-- 消费类别模态框 -->
     <div class="modal" id="categoryModal">
         <div class="modal-content" style="max-width: 520px;">
-            <div class="modal-title" id="categoryModalTitle">➕ 添加消费类别</div>
+            <div class="modal-title" id="categoryModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>添加消费类别</div>
             <div class="modal-subtitle" id="categoryModalSubtitle">维护类别名称与排序</div>
             <form id="categoryForm">
                 <div class="form-group">
@@ -1058,7 +1030,7 @@
     <!-- 删除消费类别确认 -->
     <div class="modal" id="deleteCategoryModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除</div>
             <div class="modal-subtitle">确定要删除该消费类别吗？（软删除）</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteCategoryModal()">取消</button>
@@ -1070,7 +1042,7 @@
     <!-- 收入类别模态框 -->
     <div class="modal" id="incomeCategoryModal">
         <div class="modal-content" style="max-width: 520px;">
-            <div class="modal-title" id="incomeCategoryModalTitle">➕ 添加收入类别</div>
+            <div class="modal-title" id="incomeCategoryModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>添加收入类别</div>
             <div class="modal-subtitle" id="incomeCategoryModalSubtitle">维护类别名称与排序</div>
             <form id="incomeCategoryForm">
                 <div class="form-group">
@@ -1101,7 +1073,7 @@
     <!-- 删除收入类别确认 -->
     <div class="modal" id="deleteIncomeCategoryModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除</div>
             <div class="modal-subtitle">确定要删除该收入类别吗？（软删除）</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteIncomeCategoryModal()">取消</button>
@@ -1113,7 +1085,7 @@
     <!-- 收入新增/编辑模态框 -->
     <div class="modal" id="incomeModal">
         <div class="modal-content" style="max-width: 520px;">
-            <div class="modal-title" id="incomeModalTitle">➕ 添加收入</div>
+            <div class="modal-title" id="incomeModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>添加收入</div>
             <div class="modal-subtitle" id="incomeModalSubtitle">填写收入信息</div>
             <form id="incomeForm">
                 <div class="form-group" id="incomeUserIdGroup">
@@ -1149,7 +1121,7 @@
     <!-- 删除收入确认 -->
     <div class="modal" id="deleteIncomeModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除</div>
             <div class="modal-subtitle">确定要删除这条收入记录吗？（软删除）</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteIncomeModal()">取消</button>
@@ -1161,7 +1133,7 @@
     <!-- 删除用户确认 -->
     <div class="modal" id="deleteUserModal">
         <div class="modal-content">
-            <div class="modal-title">⚠️ 确认删除用户</div>
+            <div class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>确认删除用户</div>
             <div class="modal-subtitle">确定要删除用户 <span id="deleteUserModalUsername"></span> 吗？此操作不可恢复。</div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeDeleteUserModal()">取消</button>
@@ -1194,7 +1166,7 @@
         <div class="modal-content theme-modal-content">
             <div class="theme-modal-header">
                 <div>
-                    <div class="modal-title">🎨 选择主题</div>
+                    <div class="modal-title"><i class="fa-solid fa-palette" style="margin-right:6px;"></i>选择主题</div>
                     <div class="theme-modal-sub">点击即刻生效，自动保存；刷新后保持</div>
                 </div>
                 <button class="drawer-close" onclick="closeThemeModal()" title="关闭">
@@ -1973,9 +1945,9 @@
                                 ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
                                 ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
                                 ${!isCurrentUser ? `
-                                    ${!user.is_admin && canImpersonate ? `<button class="icon-btn info" data-tooltip="模拟登录" onclick="impersonateUser(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="模拟登录">🔐</button>` : ''}
-                                    <button class="icon-btn danger" data-tooltip="删除" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="删除">🗑️</button>
-                                    <button class="icon-btn secondary" data-tooltip="${toggleText}" onclick="updateUserStatus(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${nextStatus}')" title="${toggleText}">${user.status === 'locked' ? '🔓' : '🔒'}</button>
+                                    ${!user.is_admin && canImpersonate ? `<button class="icon-btn info" data-tooltip="模拟登录" onclick="impersonateUser(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="模拟登录"><i class="fa-solid fa-user-secret"></i></button>` : ''}
+                                    <button class="icon-btn danger" data-tooltip="删除" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="删除"><i class="fa-solid fa-trash"></i></button>
+                                    <button class="icon-btn secondary" data-tooltip="${toggleText}" onclick="updateUserStatus(${user.id}, '${user.username.replace(/'/g, "\\'")}', '${nextStatus}')" title="${toggleText}"><i class="fa-solid ${user.status === 'locked' ? 'fa-lock-open' : 'fa-lock'}"></i></button>
                                 ` : ''}
                             </div>
                         </td>
