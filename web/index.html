@@ -311,12 +311,12 @@
         .page-btn.active { background: var(--primary); border-color: var(--primary); }
         .page-content { display: none; }
         .page-content.active { display: block; }
-        .toast { position: fixed; top: 24px; right: 24px; padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; animation: slideIn 0.3s ease; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+        .toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; animation: toastSlideIn 0.3s ease; box-shadow: var(--shadow); overflow: hidden; }
         .toast::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.3); }
         .toast.success { background: var(--gradient-success); }
         .toast.error { background: var(--gradient-danger); }
         .toast.warning { background: var(--gradient-warning); }
-        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toastSlideIn { from { transform: translate(-50%, -100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
         .modal-content { background: var(--bg-card); border-radius: 16px; padding: 32px; max-width: 450px; width: 90%; border: 1px solid var(--border); position: relative; overflow: hidden; animation: modalSlideIn 0.3s ease; }
@@ -327,6 +327,10 @@
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
         .modal-actions .btn { flex: 1; }
         .action-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        /* AI模型表操作列不换行 */
+        #page-ai-models .action-btns { flex-wrap: nowrap; white-space: nowrap; }
+        /* 调用地址超长省略，悬停显示完整地址 */
+        .url-ellipsis { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
         .action-btns .btn { width: auto; padding: 8px 12px; font-size: 13px; border-radius: 10px; white-space: nowrap; }
         /* 图标按钮样式 */
         .icon-btn { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.2s ease; position: relative; border: 1px solid var(--border); background: var(--bg-input); }
@@ -396,6 +400,7 @@
     <!-- Markdown 渲染：marked + DOMPurify（允许前端依赖） -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
 <body>
     <!-- 登录页面 -->
@@ -476,6 +481,10 @@
                 <div class="nav-item" data-page="categories">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><path d="M8 6v12"/></svg>
                     消费类别
+                </div>
+                <div class="nav-item" data-page="income-categories">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/><path d="M8 6v12"/></svg>
+                    收入类别
                 </div>
                 <div class="nav-item" data-page="export">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -724,6 +733,32 @@
                 </div>
             </div>
 
+            <!-- 收入类别页 -->
+            <div class="page-content" id="page-income-categories">
+                <div class="page-header">
+                    <div><h1 class="page-title">收入类别</h1><p class="page-subtitle">手动维护收入类别，供添加收入/筛选使用</p></div>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;">
+                            <label>类别名称</label>
+                            <input type="text" id="incomeCategorySearchName" placeholder="搜索类别名称" oninput="renderIncomeCategoriesTable()">
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary" onclick="loadIncomeCategories()">查询</button>
+                            <button class="btn btn-success" onclick="openIncomeCategoryModal()">添加类别</button>
+                            <button class="btn btn-secondary" onclick="resetIncomeCategorySearch()">重置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>名称</th><th>排序</th><th>创建时间</th><th>操作</th></tr></thead>
+                        <tbody id="incomeCategoriesTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- 数据导出页 -->
             <div class="page-content" id="page-export">
                 <div class="page-header"><div><h1 class="page-title">数据导出</h1><p class="page-subtitle">按时间范围导出消费记录为 Excel 文件</p></div></div>
@@ -755,7 +790,7 @@
                     <div class="filter-row">
                         <div class="filter-item"><label>开始日期</label><input type="date" id="incomeFilterStartDate"></div>
                         <div class="filter-item"><label>结束日期</label><input type="date" id="incomeFilterEndDate"></div>
-                        <div class="filter-item" id="incomeFilterTypeItem" style="display: none;"><label>收入类型</label><input type="text" id="incomeFilterType" placeholder="例如：工资"></div>
+                        <div class="filter-item" id="incomeFilterTypeItem" style="display: none;"><label>收入类型</label><select id="incomeFilterType" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">全部类型</option></select></div>
                         <div class="filter-item" id="incomeFilterUsernameItem" style="display: none;"><label>选择用户</label><select id="incomeFilterUserId" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);"><option value="">全部用户</option></select></div>
                         <div class="filter-actions">
                             <button class="btn btn-primary" onclick="loadIncomes()">查询</button>
@@ -791,7 +826,7 @@
                 </div>
                 <div class="data-table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>模型名称</th><th>调用地址</th><th>创建时间</th><th>操作</th></tr></thead>
+                        <thead><tr><th style="width:40px;text-align:center;" title="拖动排序">⋮⋮</th><th>ID</th><th>模型名称</th><th>调用地址</th><th>创建时间</th><th style="min-width:200px;">操作</th></tr></thead>
                         <tbody id="aiModelsTable"></tbody>
                     </table>
                 </div>
@@ -1032,6 +1067,49 @@
         </div>
     </div>
 
+    <!-- 收入类别模态框 -->
+    <div class="modal" id="incomeCategoryModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-title" id="incomeCategoryModalTitle">➕ 添加收入类别</div>
+            <div class="modal-subtitle" id="incomeCategoryModalSubtitle">维护类别名称与排序</div>
+            <form id="incomeCategoryForm">
+                <div class="form-group">
+                    <label>类别名称 *</label>
+                    <input type="text" id="incomeCategoryName" placeholder="例如：工资" required maxlength="50">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div class="form-group">
+                        <label>排序（越小越靠前）</label>
+                        <input type="number" id="incomeCategorySort" placeholder="例如：10" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>颜色</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="color" id="incomeCategoryColor" value="#64748b" style="width:60px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+                            <input type="text" id="incomeCategoryColorText" placeholder="#64748b" maxlength="20" style="flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);font-family:monospace;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeIncomeCategoryModal()">取消</button>
+                    <button type="submit" class="btn btn-success" id="incomeCategorySubmitBtn">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除收入类别确认 -->
+    <div class="modal" id="deleteIncomeCategoryModal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-subtitle">确定要删除该收入类别吗？（软删除）</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeDeleteIncomeCategoryModal()">取消</button>
+                <button class="btn btn-danger" onclick="confirmDeleteIncomeCategory()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 收入新增/编辑模态框 -->
     <div class="modal" id="incomeModal">
         <div class="modal-content" style="max-width: 520px;">
@@ -1050,8 +1128,10 @@
                         <input type="number" id="incomeAmount" placeholder="0.00" step="0.01" min="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>收入类型 *</label>
-                        <input type="text" id="incomeType" placeholder="例如：工资" required maxlength="50">
+                        <label>收入类别 *</label>
+                        <select id="incomeType" required style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg-input);color:var(--text-primary);">
+                            <option value="">请选择类别</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1182,6 +1262,7 @@
         let chatStreaming = false, chatCurrentAIEl = null, chatHistoryPage = 1;
         let analysisHistoryPage = 1, analysisHistoryPageSize = 10, analysisHistoryTotalPages = 1;
         let allCategories = [], editingCategoryId = null, deleteCategoryId = null;
+        let allIncomeCategories = [], editingIncomeCategoryId = null, deleteIncomeCategoryId = null;
         let incomeCurrentPage = 1, incomeTotalPages = 1, editingIncomeId = null, deleteIncomeId = null;
         let isAdmin = false; // 当前用户是否为管理员
         let currentUserId = null; // 当前用户ID
@@ -1645,11 +1726,12 @@
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
             document.getElementById(`page-${page}`).classList.add('active');
             if (page === 'dashboard') loadStatistics();
-            else if (page === 'expenses') { if (isAdmin) loadUsersForExpenses(); loadExpenses(); }
+            else if (page === 'expenses') { setDefaultExpenseFilterDates(); if (isAdmin) loadUsersForExpenses(); loadExpenses(); }
             else if (page === 'statistics') { initStatisticsPage(); }
             else if (page === 'users') loadUsers();
             else if (page === 'categories') loadCategories();
-            else if (page === 'incomes') { if (isAdmin) loadUsersForIncomes(); setDefaultIncomeDates(); loadIncomes(); }
+            else if (page === 'income-categories') loadIncomeCategories();
+            else if (page === 'incomes') { if (isAdmin) { loadUsersForIncomes(); loadIncomeCategoriesFromServer().then(() => renderIncomeCategoryOptions(document.getElementById('incomeFilterType'), true)); } setDefaultIncomeDates(); loadIncomes(); }
             else if (page === 'ai-models') loadAIModels();
             else if (page === 'ai-analysis') { 
                 loadAIModelsForAnalysis(); 
@@ -1657,6 +1739,15 @@
                 loadUsersForAnalysis();
             }
             else if (page === 'ai-chat') { loadAIModelsForChat(); }
+        }
+
+        function setDefaultExpenseFilterDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const s = document.getElementById('filterStartDate');
+            const e = document.getElementById('filterEndDate');
+            if (s && !s.value) s.value = formatDate(firstDay);
+            if (e && !e.value) e.value = formatDate(today);
         }
 
         function setDefaultIncomeDates() {
@@ -2247,6 +2338,184 @@
             }
         }
 
+        // ===== 收入类别管理功能 =====
+        async function loadIncomeCategories() {
+            await loadIncomeCategoriesFromServer();
+            renderIncomeCategoriesTable();
+            renderIncomeCategoryOptions(document.getElementById('incomeType'));
+            renderIncomeCategoryOptions(document.getElementById('incomeFilterType'), true);
+        }
+
+        function resetIncomeCategorySearch() {
+            const input = document.getElementById('incomeCategorySearchName');
+            if (input) input.value = '';
+            renderIncomeCategoriesTable();
+        }
+
+        function renderIncomeCategoriesTable() {
+            const tbody = document.getElementById('incomeCategoriesTable');
+            if (!tbody) return;
+            const keyword = (document.getElementById('incomeCategorySearchName')?.value || '').trim().toLowerCase();
+            const list = (allIncomeCategories || []).filter(c => {
+                if (!keyword) return true;
+                const name = (c.name || '').toLowerCase();
+                return name.includes(keyword);
+            });
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">${keyword ? '未找到匹配的类别' : '暂无类别'}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = list.map(c => {
+                const color = c.color || '#64748b';
+                const escapedName = (c.name || '').replace(/'/g, "\\'");
+                return `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="category-tag" style="background: ${hexToRgba(color, 0.15)}; color: ${color};">${c.name}</span>
+                        </div>
+                    </td>
+                    <td>${c.sort ?? 0}</td>
+                    <td>${formatDateTime(c.created_at)}</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="btn btn-primary btn-sm" onclick="openEditIncomeCategoryModal(${c.id}, '${escapedName}', ${c.sort ?? 0}, '${color}')">编辑</button>
+                            <button class="btn btn-danger btn-sm" onclick="openDeleteIncomeCategoryModal(${c.id})">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+        }
+
+        function openIncomeCategoryModal() {
+            editingIncomeCategoryId = null;
+            document.getElementById('incomeCategoryModalTitle').textContent = '➕ 添加收入类别';
+            document.getElementById('incomeCategoryModalSubtitle').textContent = '维护类别名称与排序';
+            document.getElementById('incomeCategorySubmitBtn').textContent = '确认添加';
+            document.getElementById('incomeCategoryForm').reset();
+            document.getElementById('incomeCategoryColor').value = '#64748b';
+            document.getElementById('incomeCategoryColorText').value = '#64748b';
+            document.getElementById('incomeCategoryModal').classList.add('show');
+        }
+
+        function openEditIncomeCategoryModal(id, name, sort, color) {
+            editingIncomeCategoryId = id;
+            document.getElementById('incomeCategoryModalTitle').textContent = '✏️ 编辑收入类别';
+            document.getElementById('incomeCategoryModalSubtitle').textContent = `编辑 ID: ${id}`;
+            document.getElementById('incomeCategorySubmitBtn').textContent = '保存修改';
+            document.getElementById('incomeCategoryName').value = name || '';
+            document.getElementById('incomeCategorySort').value = (sort ?? 0);
+            const categoryColor = color || '#64748b';
+            document.getElementById('incomeCategoryColor').value = categoryColor;
+            document.getElementById('incomeCategoryColorText').value = categoryColor;
+            document.getElementById('incomeCategoryModal').classList.add('show');
+        }
+
+        function closeIncomeCategoryModal() {
+            document.getElementById('incomeCategoryModal').classList.remove('show');
+            editingIncomeCategoryId = null;
+        }
+
+        document.getElementById('incomeCategoryColor').addEventListener('input', function() {
+            document.getElementById('incomeCategoryColorText').value = this.value;
+        });
+        document.getElementById('incomeCategoryColorText').addEventListener('input', function() {
+            const colorValue = this.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+                document.getElementById('incomeCategoryColor').value = colorValue;
+            }
+        });
+
+        document.getElementById('incomeCategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = (document.getElementById('incomeCategoryName').value || '').trim();
+            const sortStr = document.getElementById('incomeCategorySort').value;
+            const sort = sortStr === '' ? 0 : parseInt(sortStr, 10);
+            const color = (document.getElementById('incomeCategoryColorText').value || '#64748b').trim();
+            if (!name) { showToast('请输入类别名称', 'warning'); return; }
+            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) { showToast('颜色格式不正确，请使用 #RRGGBB 格式', 'warning'); return; }
+
+            try {
+                let res;
+                if (editingIncomeCategoryId) {
+                    res = await fetch(`/admin/income-categories/${editingIncomeCategoryId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, sort, color })
+                    });
+                } else {
+                    res = await fetch('/admin/income-categories', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, sort, color })
+                    });
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message || '成功', 'success');
+                    closeIncomeCategoryModal();
+                    loadIncomeCategories();
+                } else {
+                    showToast(data.message || '失败', 'error');
+                }
+            } catch (err) {
+                showToast('操作失败', 'error');
+            }
+        });
+
+        function openDeleteIncomeCategoryModal(id) {
+            deleteIncomeCategoryId = id;
+            document.getElementById('deleteIncomeCategoryModal').classList.add('show');
+        }
+
+        function closeDeleteIncomeCategoryModal() {
+            document.getElementById('deleteIncomeCategoryModal').classList.remove('show');
+            deleteIncomeCategoryId = null;
+        }
+
+        async function confirmDeleteIncomeCategory() {
+            if (!deleteIncomeCategoryId) return;
+            try {
+                const res = await fetch(`/admin/income-categories/${deleteIncomeCategoryId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    closeDeleteIncomeCategoryModal();
+                    loadIncomeCategories();
+                } else {
+                    showToast(data.message || '删除失败', 'error');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        async function loadIncomeCategoriesFromServer() {
+            try {
+                const res = await fetch('/admin/income-categories');
+                const data = await res.json();
+                if (data.success) {
+                    allIncomeCategories = data.data || [];
+                } else {
+                    allIncomeCategories = [];
+                }
+            } catch (e) {
+                allIncomeCategories = [];
+            }
+            return allIncomeCategories;
+        }
+
+        function renderIncomeCategoryOptions(selectEl, includeAll = false) {
+            if (!selectEl) return;
+            const current = selectEl.value;
+            let html = includeAll ? '<option value="">全部类型</option>' : '<option value="">请选择类别</option>';
+            html += (allIncomeCategories || []).map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            selectEl.innerHTML = html;
+            if (current) selectEl.value = current;
+        }
+
         // ===== 收入管理功能 =====
         async function loadUsersForIncomeSelect() {
             try {
@@ -2323,18 +2592,22 @@
             }
             
             loadUsersForIncomeSelect();
+            await loadIncomeCategoriesFromServer();
+            renderIncomeCategoryOptions(document.getElementById('incomeType'));
             document.getElementById('incomeModal').classList.add('show');
         }
 
-        function openEditIncomeModal(id, userId, amount, type, incomeTime) {
+        async function openEditIncomeModal(id, userId, amount, type, incomeTime) {
             editingIncomeId = id;
             document.getElementById('incomeModalTitle').textContent = '✏️ 编辑收入';
             document.getElementById('incomeModalSubtitle').textContent = `编辑 ID: ${id}`;
             document.getElementById('incomeSubmitBtn').textContent = '保存修改';
             document.getElementById('incomeAmount').value = amount;
-            document.getElementById('incomeType').value = type || '';
             document.getElementById('incomeTime').value = formatDateTimeLocal(incomeTime);
             loadUsersForIncomeSelect();
+            await loadIncomeCategoriesFromServer();
+            renderIncomeCategoryOptions(document.getElementById('incomeType'));
+            document.getElementById('incomeType').value = type || '';
             setTimeout(() => { document.getElementById('incomeUserId').value = userId; }, 80);
             document.getElementById('incomeModal').classList.add('show');
         }
@@ -2510,7 +2783,12 @@
             }
         }
 
-        function formatDate(date) { return date.toISOString().split('T')[0]; }
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            const d = date.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
         function formatDateTime(str) { if (!str) return '-'; return new Date(str).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
         function formatDateTimeLocal(str) {
             if (!str) return '';
@@ -2525,7 +2803,7 @@
             return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
         function getCookie(name) { const value = `; ${document.cookie}`; const parts = value.split(`; ${name}=`); if (parts.length === 2) return parts.pop().split(';').shift(); return null; }
-        function showToast(message, type = 'success') { const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; document.body.appendChild(toast); setTimeout(() => toast.remove(), 3000); }
+        function showToast(message, type = 'success') { const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; document.body.appendChild(toast); setTimeout(() => toast.remove(), 1500); }
 
         // ===== 消费记录管理功能 =====
         async function loadUsersForSelect() {
@@ -2813,23 +3091,67 @@
         function renderAIModelsTable(models) {
             const tbody = document.getElementById('aiModelsTable');
             if (!models || models.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无AI模型配置</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">暂无AI模型配置</td></tr>';
+                if (window.aiModelsSortable) { aiModelsSortable.destroy(); aiModelsSortable = null; }
             } else {
                 tbody.innerHTML = models.map(model => `
-                    <tr>
+                    <tr data-id="${model.id}">
+                        <td style="cursor:grab;text-align:center;color:var(--text-secondary);user-select:none;" class="drag-handle" title="拖动调整顺序">⋮⋮</td>
                         <td>${model.id}</td>
                         <td><strong>${model.name}</strong></td>
-                        <td style="word-break: break-all; color: var(--text-secondary);">${model.base_url}</td>
+                        <td style="color: var(--text-secondary);"><span class="url-ellipsis" title="${(model.base_url||'').replace(/"/g, '&quot;')}">${model.base_url}</span></td>
                         <td>${formatDateTime(model.created_at)}</td>
                         <td>
                             <div class="action-btns">
-                                <button class="btn btn-primary btn-sm" onclick="openEditAIModelModal(${model.id}, '${model.name}', '${model.base_url}')">编辑</button>
+                                <button class="btn btn-success btn-sm" onclick="detectAIModel(${model.id})">检测</button>
+                                <button class="btn btn-primary btn-sm" onclick="openEditAIModelModalById(${model.id})">编辑</button>
                                 <button class="btn btn-danger btn-sm" onclick="openDeleteAIModelModal(${model.id})">删除</button>
                             </div>
                         </td>
                     </tr>
                 `).join('');
+                initAIModelsSortable();
             }
+        }
+
+        function openEditAIModelModalById(id) {
+            const m = allAIModels.find(x => x.id === id);
+            if (m) openEditAIModelModal(m.id, m.name, m.base_url);
+        }
+
+        let aiModelsSortable = null;
+        function initAIModelsSortable() {
+            if (aiModelsSortable) { aiModelsSortable.destroy(); aiModelsSortable = null; }
+            const tbody = document.getElementById('aiModelsTable');
+            if (!tbody || tbody.querySelector('tr[data-id]') === null) return;
+            aiModelsSortable = Sortable.create(tbody, {
+                handle: '.drag-handle',
+                animation: 150,
+                onEnd: async function(evt) {
+                    const rows = tbody.querySelectorAll('tr[data-id]');
+                    const modelIds = Array.from(rows).map(r => parseInt(r.dataset.id, 10));
+                    try {
+                        const res = await fetch('/admin/ai-models/reorder', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ model_ids: modelIds })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            showToast('排序已保存', 'success');
+                            allAIModels = allAIModels.sort((a, b) => modelIds.indexOf(a.id) - modelIds.indexOf(b.id));
+                            loadAIModelsForAnalysis();
+                            loadAIModelsForChat();
+                        } else {
+                            showToast(data.message || '排序保存失败', 'error');
+                            loadAIModels();
+                        }
+                    } catch (e) {
+                        showToast('排序保存失败', 'error');
+                        loadAIModels();
+                    }
+                }
+            });
         }
 
         function openAIModelModal() {
@@ -2908,6 +3230,20 @@
                 showToast('操作失败', 'error');
             }
         });
+
+        async function detectAIModel(id) {
+            try {
+                const res = await fetch(`/admin/ai-models/${id}/test`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('接口可用', 'success');
+                } else {
+                    showToast(data.message || '检测失败', 'error');
+                }
+            } catch (e) {
+                showToast('检测失败: ' + (e.message || '网络错误'), 'error');
+            }
+        }
 
         function openDeleteAIModelModal(id) {
             deleteAIModelId = id;

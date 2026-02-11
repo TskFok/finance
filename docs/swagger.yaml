@@ -247,6 +247,33 @@ definitions:
     required:
     - user_id
     type: object
+  api.IncomeCategoryCreateRequest:
+    properties:
+      color:
+        description: '颜色代码，如 #10b981'
+        maxLength: 20
+        type: string
+      name:
+        maxLength: 50
+        minLength: 1
+        type: string
+      sort:
+        type: integer
+    required:
+    - name
+    type: object
+  api.IncomeCategoryUpdateRequest:
+    properties:
+      color:
+        maxLength: 20
+        type: string
+      name:
+        maxLength: 50
+        minLength: 1
+        type: string
+      sort:
+        type: integer
+    type: object
   api.IncomeExpenseSummaryResponse:
     properties:
       total_expense:
@@ -329,6 +356,17 @@ definitions:
     - email
     - password
     - username
+    type: object
+  api.ReorderAIModelsRequest:
+    properties:
+      model_ids:
+        description: 按新顺序排列的模型 ID 列表
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - model_ids
     type: object
   api.RequestResetRequest:
     properties:
@@ -463,6 +501,9 @@ definitions:
       name:
         description: 模型名称
         type: string
+      sort_order:
+        description: 排序序号，越小越靠前
+        type: integer
       updated_at:
         type: string
     type: object
@@ -518,6 +559,22 @@ definitions:
         type: string
       user_id:
         type: integer
+    type: object
+  models.IncomeCategory:
+    properties:
+      color:
+        description: '颜色代码，如 #10b981'
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      sort:
+        type: integer
+      updated_at:
+        type: string
     type: object
   models.User:
     properties:
@@ -872,6 +929,69 @@ paths:
       summary: 更新AI模型
       tags:
       - 后台管理-AI模型
+  /admin/ai-models/{id}/test:
+    post:
+      description: 向AI模型发送轻量测试请求，检测接口是否可用
+      parameters:
+      - description: AI模型ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 检测成功，接口可用
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 模型不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "502":
+          description: 接口不可用
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 检测AI接口可用性
+      tags:
+      - 后台管理-AI模型
+  /admin/ai-models/reorder:
+    put:
+      consumes:
+      - application/json
+      description: 根据传入的模型ID顺序更新排序，用于前端拖拽排序后保存
+      parameters:
+      - description: 模型ID顺序
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ReorderAIModelsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 排序成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 排序AI模型
+      tags:
+      - 后台管理-AI模型
   /admin/categories:
     get:
       description: 获取所有消费类别列表，支持按名称模糊搜索
@@ -985,6 +1105,25 @@ paths:
       summary: 更新消费类别
       tags:
       - 后台管理-消费类别
+  /admin/current-user:
+    get:
+      description: 获取当前登录用户的详细信息（包括用户ID）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取当前登录用户信息
+      tags:
+      - 后台管理
   /admin/email-config:
     get:
       description: 获取邮件服务配置信息（邮箱地址会被部分隐藏）
@@ -1227,7 +1366,7 @@ paths:
       - 后台管理-统计
   /admin/export/excel:
     get:
-      description: 根据时间范围导出消费记录为Excel文件
+      description: 根据时间范围导出消费记录为Excel文件。管理员可导出所有用户数据，普通用户只能导出自己的数据。
       parameters:
       - description: 开始时间 (YYYY-MM-DD)
         in: query
@@ -1251,9 +1390,127 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
       summary: 导出消费记录为Excel
       tags:
       - 后台管理-导出
+  /admin/income-categories:
+    get:
+      description: 获取所有收入类别列表，支持按名称模糊搜索
+      parameters:
+      - description: 类别名称（模糊匹配）
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回类别列表
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取收入类别列表
+      tags:
+      - 后台管理-收入类别
+    post:
+      consumes:
+      - application/json
+      description: 创建新的收入类别，支持设置名称、排序和颜色
+      parameters:
+      - description: 类别信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.IncomeCategoryCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 创建收入类别
+      tags:
+      - 后台管理-收入类别
+  /admin/income-categories/{id}:
+    delete:
+      description: 软删除指定的收入类别
+      parameters:
+      - description: 类别ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 无效的ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 删除收入类别
+      tags:
+      - 后台管理-收入类别
+    put:
+      consumes:
+      - application/json
+      description: 更新指定的收入类别信息
+      parameters:
+      - description: 类别ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的类别信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.IncomeCategoryUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误或类别名称已存在
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 类别不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 更新收入类别
+      tags:
+      - 后台管理-收入类别
   /admin/incomes:
     get:
       description: 获取收入记录列表，支持分页、时间范围、类型、用户名筛选。管理员可查看所有记录并可按用户ID筛选，非管理员只能查看自己的记录。
@@ -2935,6 +3192,32 @@ paths:
       summary: 导出消费记录为 JSON
       tags:
       - 导出
+  /api/v1/income-categories:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有可用的收入类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。返回字段与消费类别一致：id、name、sort、color、created_at、updated_at。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回类别列表数组
+          schema:
+            allOf:
+            - $ref: '#/definitions/api.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.IncomeCategory'
+                  type: array
+              type: object
+        "500":
+          description: 服务器内部错误，查询失败时返回错误信息
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: 获取收入类别列表
+      tags:
+      - 收入
   /api/v1/incomes:
     get:
       description: 获取当前用户的收入列表，支持分页与筛选

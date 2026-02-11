@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"finance/database"
@@ -38,6 +39,24 @@ type IncomeListRequest struct {
 	Type      string `form:"type" example:"工资"`
 	StartTime string `form:"start_time" example:"2024-01-01"`
 	EndTime   string `form:"end_time" example:"2024-12-31"`
+}
+
+// GetIncomeCategories 获取收入类别列表
+// @Summary 获取收入类别列表
+// @Description 获取所有可用的收入类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。返回字段与消费类别一致：id、name、sort、color、created_at、updated_at。
+// @Tags 收入
+// @Accept json
+// @Produce json
+// @Success 200 {object} Response{data=[]models.IncomeCategory} "获取成功，返回类别列表数组"
+// @Failure 500 {object} Response "服务器内部错误，查询失败时返回错误信息"
+// @Router /api/v1/income-categories [get]
+func (h *IncomeHandler) GetIncomeCategories(c *gin.Context) {
+	var list []models.IncomeCategory
+	if err := database.DB.Order("sort ASC, id ASC").Find(&list).Error; err != nil {
+		InternalError(c, "查询失败: "+err.Error())
+		return
+	}
+	Success(c, list)
 }
 
 // Create 创建收入
@@ -397,6 +416,19 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
 		return
 	}
+
+	// 校验收入类型是否存在（来源于数据库）
+	req.Type = strings.TrimSpace(req.Type)
+	if req.Type == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "收入类型不能为空"})
+		return
+	}
+	var incCat models.IncomeCategory
+	if err := database.DB.Where("name = ?", req.Type).First(&incCat).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的收入类型，请先在「收入类别」中维护"})
+		return
+	}
+
 	t, err := time.ParseInLocation("2006-01-02 15:04:05", req.IncomeTime, time.Local)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "时间格式错误，应为: 2006-01-02 15:04:05"})
@@ -469,6 +501,16 @@ func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 		updates["amount"] = req.Amount
 	}
 	if req.Type != "" {
+		req.Type = strings.TrimSpace(req.Type)
+		if req.Type == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "收入类型不能为空"})
+			return
+		}
+		var incCat models.IncomeCategory
+		if err := database.DB.Where("name = ?", req.Type).First(&incCat).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的收入类型，请先在「收入类别」中维护"})
+			return
+		}
 		updates["type"] = req.Type
 	}
 	if req.IncomeTime != "" {

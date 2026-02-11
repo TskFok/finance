@@ -212,6 +212,12 @@ FINANCE_DATABASE_PASSWORD=secret ./finance-linux-amd64
 |------|------|------|------|
 | GET | /api/v1/categories | 获取消费类别列表 | 否 |
 
+### 收入类别（/api/v1/income-categories）
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| GET | /api/v1/income-categories | 获取收入类别列表（返回字段与消费类别一致） | 否 |
+
 ### 消费记录（/api/v1/expenses）
 
 | 方法 | 路径 | 说明 | 认证 |
@@ -289,6 +295,10 @@ FINANCE_DATABASE_PASSWORD=secret ./finance-linux-amd64
 | POST | /admin/categories | 创建消费类别 | Cookie |
 | PUT | /admin/categories/:id | 更新消费类别 | Cookie |
 | DELETE | /admin/categories/:id | 删除消费类别 | Cookie |
+| GET | /admin/income-categories | 获取所有收入类别 | Cookie |
+| POST | /admin/income-categories | 创建收入类别 | Cookie |
+| PUT | /admin/income-categories/:id | 更新收入类别 | Cookie |
+| DELETE | /admin/income-categories/:id | 删除收入类别 | Cookie |
 | GET | /admin/users | 获取所有用户 | Cookie |
 | GET | /admin/statistics | 获取统计数据（包含收入和支出） | Cookie |
 | GET | /admin/export/excel | 导出 Excel 文件 | Cookie |

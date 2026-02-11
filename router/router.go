@@ -66,6 +66,11 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.POST("/categories", categoryHandler.Create)
 			adminAuth.PUT("/categories/:id", categoryHandler.Update)
 			adminAuth.DELETE("/categories/:id", categoryHandler.Delete)
+			incomeCategoryHandler := api.NewIncomeCategoryHandler()
+			adminAuth.GET("/income-categories", incomeCategoryHandler.List)
+			adminAuth.POST("/income-categories", incomeCategoryHandler.Create)
+			adminAuth.PUT("/income-categories/:id", incomeCategoryHandler.Update)
+			adminAuth.DELETE("/income-categories/:id", incomeCategoryHandler.Delete)
 			adminAuth.GET("/users", adminHandler.GetAllUsers)
 			adminAuth.PUT("/users/:id/password", adminHandler.UpdateUserPassword)
 			adminAuth.DELETE("/users/:id", adminHandler.DeleteUser)
@@ -89,8 +94,10 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// AI模型管理
 			aiModelHandler := api.NewAIModelHandler()
 			adminAuth.GET("/ai-models", aiModelHandler.GetAllAIModels)
+			adminAuth.PUT("/ai-models/reorder", aiModelHandler.ReorderAIModels)
 			adminAuth.GET("/ai-models/:id", aiModelHandler.GetAIModel)
 			adminAuth.POST("/ai-models", aiModelHandler.CreateAIModel)
+			adminAuth.POST("/ai-models/:id/test", aiModelHandler.TestAIModel)
 			adminAuth.PUT("/ai-models/:id", aiModelHandler.UpdateAIModel)
 			adminAuth.DELETE("/ai-models/:id", aiModelHandler.DeleteAIModel)
 
@@ -132,9 +139,11 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			auth.POST("/password/reset", authHandler.AppResetPassword)
 		}
 
-		// 消费类别（无需登录）
+		// 消费类别、收入类别（无需登录）
 		expenseHandler := api.NewExpenseHandler()
+		incomeHandler := api.NewIncomeHandler()
 		v1.GET("/categories", expenseHandler.GetCategories)
+		v1.GET("/income-categories", incomeHandler.GetIncomeCategories)
 
 		// 需要 JWT 认证的路由
 		authorized := v1.Group("")
@@ -160,7 +169,6 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			authorized.GET("/statistics/summary", expenseHandler.GetIncomeExpenseSummary)
 
 			// 收入相关
-			incomeHandler := api.NewIncomeHandler()
 			incomes := authorized.Group("/incomes")
 			{
 				incomes.POST("", incomeHandler.Create)

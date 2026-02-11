@@ -358,6 +358,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/ai-models/reorder": {
+            "put": {
+                "description": "根据传入的模型ID顺序更新排序，用于前端拖拽排序后保存",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-AI模型"
+                ],
+                "summary": "排序AI模型",
+                "parameters": [
+                    {
+                        "description": "模型ID顺序",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ReorderAIModelsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "排序成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/admin/ai-models/{id}": {
             "get": {
                 "description": "根据ID获取AI模型配置详情（不包含APIKey）",
@@ -490,6 +532,57 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "模型不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/ai-models/{id}/test": {
+            "post": {
+                "description": "向AI模型发送轻量测试请求，检测接口是否可用",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-AI模型"
+                ],
+                "summary": "检测AI接口可用性",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "AI模型ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "检测成功，接口可用",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "模型不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "502": {
+                        "description": "接口不可用",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -657,6 +750,34 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "类别不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/current-user": {
+            "get": {
+                "description": "获取当前登录用户的详细信息（包括用户ID）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理"
+                ],
+                "summary": "获取当前登录用户信息",
+                "responses": {
+                    "200": {
+                        "description": "获取成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1020,7 +1141,7 @@ const docTemplate = `{
         },
         "/admin/export/excel": {
             "get": {
-                "description": "根据时间范围导出消费记录为Excel文件",
+                "description": "根据时间范围导出消费记录为Excel文件。管理员可导出所有用户数据，普通用户只能导出自己的数据。",
                 "produces": [
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
@@ -1053,6 +1174,180 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/income-categories": {
+            "get": {
+                "description": "获取所有收入类别列表，支持按名称模糊搜索",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-收入类别"
+                ],
+                "summary": "获取收入类别列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "类别名称（模糊匹配）",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回类别列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建新的收入类别，支持设置名称、排序和颜色",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-收入类别"
+                ],
+                "summary": "创建收入类别",
+                "parameters": [
+                    {
+                        "description": "类别信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.IncomeCategoryCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或类别名称已存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/income-categories/{id}": {
+            "put": {
+                "description": "更新指定的收入类别信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-收入类别"
+                ],
+                "summary": "更新收入类别",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "类别ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新的类别信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.IncomeCategoryUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误或类别名称已存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "类别不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "软删除指定的收入类别",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-收入类别"
+                ],
+                "summary": "删除收入类别",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "类别ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "无效的ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "类别不存在",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -3603,6 +3898,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/income-categories": {
+            "get": {
+                "description": "获取所有可用的收入类别列表，返回完整的类别对象数组。类别按排序字段（sort）升序排列，排序相同时按ID升序排列。返回字段与消费类别一致：id、name、sort、color、created_at、updated_at。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "收入"
+                ],
+                "summary": "获取收入类别列表",
+                "responses": {
+                    "200": {
+                        "description": "获取成功，返回类别列表数组",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/api.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.IncomeCategory"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误，查询失败时返回错误信息",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/incomes": {
             "get": {
                 "security": [
@@ -4340,6 +4679,44 @@ const docTemplate = `{
                 }
             }
         },
+        "api.IncomeCategoryCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "color": {
+                    "description": "颜色代码，如 #10b981",
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 1
+                },
+                "sort": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.IncomeCategoryUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 1
+                },
+                "sort": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.IncomeExpenseSummaryResponse": {
             "type": "object",
             "properties": {
@@ -4451,6 +4828,22 @@ const docTemplate = `{
                     "maxLength": 50,
                     "minLength": 3,
                     "example": "testuser"
+                }
+            }
+        },
+        "api.ReorderAIModelsRequest": {
+            "type": "object",
+            "required": [
+                "model_ids"
+            ],
+            "properties": {
+                "model_ids": {
+                    "description": "按新顺序排列的模型 ID 列表",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -4646,6 +5039,10 @@ const docTemplate = `{
                     "description": "模型名称",
                     "type": "string"
                 },
+                "sort_order": {
+                    "description": "排序序号，越小越靠前",
+                    "type": "integer"
+                },
                 "updated_at": {
                     "type": "string"
                 }
@@ -4728,6 +5125,30 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.IncomeCategory": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "description": "颜色代码，如 #10b981",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },

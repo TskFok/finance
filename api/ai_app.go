@@ -164,7 +164,7 @@ func (h *AIChatHandler) DeleteChatHistoryApp(c *gin.Context) {
 // @Router /api/v1/ai-models [get]
 func (h *AIModelHandler) ListAIModelsApp(c *gin.Context) {
 	var list []models.AIModel
-	if err := database.DB.Find(&list).Error; err != nil {
+	if err := database.DB.Order("sort_order ASC, id ASC").Find(&list).Error; err != nil {
 		InternalError(c, "查询失败: "+err.Error())
 		return
 	}

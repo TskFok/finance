@@ -50,6 +50,7 @@ func Init(cfg *config.Config) error {
 		&models.Expense{},
 		&models.Income{},
 		&models.ExpenseCategory{},
+		&models.IncomeCategory{},
 		&models.PasswordReset{},
 		&models.EmailVerification{},
 		&models.AIModel{},
@@ -63,6 +64,19 @@ func Init(cfg *config.Config) error {
 	_ = DB.Model(&models.User{}).
 		Where("status IS NULL OR status = ''").
 		Update("status", models.UserStatusActive).Error
+
+	// 兼容历史数据：当所有 AIModel 的 sort_order 均为 0 且有多条时，按 id 赋 0,1,2,...
+	var total, zeroCnt int64
+	DB.Model(&models.AIModel{}).Count(&total)
+	DB.Model(&models.AIModel{}).Where("sort_order = 0").Count(&zeroCnt)
+	if total > 1 && zeroCnt == total {
+		var aiModels []models.AIModel
+		if err := DB.Order("id").Find(&aiModels).Error; err == nil {
+			for i, m := range aiModels {
+				_ = DB.Model(&m).Update("sort_order", i).Error
+			}
+		}
+	}
 
 	// 初始化默认消费类别（仅当表为空时）
 	var catCount int64
@@ -94,6 +108,34 @@ func Init(cfg *config.Config) error {
 		}
 		if len(cats) > 0 {
 			_ = DB.Create(&cats).Error
+		}
+	}
+
+	// 初始化默认收入类别（仅当表为空时）
+	var incomeCatCount int64
+	DB.Model(&models.IncomeCategory{}).Count(&incomeCatCount)
+	if incomeCatCount == 0 {
+		defaultIncomeCats := []struct {
+			Name  string
+			Sort  int
+			Color string
+		}{
+			{"工资", 10, "#10b981"},
+			{"奖金", 20, "#3b82f6"},
+			{"理财", 30, "#a855f7"},
+			{"兼职", 40, "#f59e0b"},
+			{"其他", 50, "#64748b"},
+		}
+		var incomeCats []models.IncomeCategory
+		for _, item := range defaultIncomeCats {
+			incomeCats = append(incomeCats, models.IncomeCategory{
+				Name:  item.Name,
+				Sort:  item.Sort,
+				Color: item.Color,
+			})
+		}
+		if len(incomeCats) > 0 {
+			_ = DB.Create(&incomeCats).Error
 		}
 	}
 

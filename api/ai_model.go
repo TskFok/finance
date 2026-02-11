@@ -1,8 +1,12 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"finance/database"
 	"finance/models"
@@ -56,10 +60,15 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 		return
 	}
 
+	// 新模型排在最后
+	var maxOrder int
+	database.DB.Model(&models.AIModel{}).Select("COALESCE(MAX(sort_order), -1)").Scan(&maxOrder)
+
 	aiModel := models.AIModel{
-		Name:    req.Name,
-		BaseURL: req.BaseURL,
-		APIKey:  req.APIKey,
+		Name:      req.Name,
+		BaseURL:   req.BaseURL,
+		APIKey:    req.APIKey,
+		SortOrder: maxOrder + 1,
 	}
 
 	if err := database.DB.Create(&aiModel).Error; err != nil {
@@ -83,7 +92,7 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 // @Router /admin/ai-models [get]
 func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
 	var models []models.AIModel
-	if err := database.DB.Find(&models).Error; err != nil {
+	if err := database.DB.Order("sort_order ASC, id ASC").Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询失败: " + err.Error()})
 		return
 	}
@@ -189,6 +198,119 @@ func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 		"success": true,
 		"message": "更新成功",
 		"data":    aiModel,
+	})
+}
+
+// TestAIModel 检测AI接口可用性
+// @Summary 检测AI接口可用性
+// @Description 向AI模型发送轻量测试请求，检测接口是否可用
+// @Tags 后台管理-AI模型
+// @Produce json
+// @Param id path int true "AI模型ID"
+// @Success 200 {object} map[string]interface{} "检测成功，接口可用"
+// @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 404 {object} map[string]interface{} "模型不存在"
+// @Failure 502 {object} map[string]interface{} "接口不可用"
+// @Router /admin/ai-models/{id}/test [post]
+func (h *AIModelHandler) TestAIModel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
+		return
+	}
+
+	var aiModel models.AIModel
+	if err := database.DB.First(&aiModel, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "模型不存在"})
+		return
+	}
+
+	// 构建最小测试请求（OpenAI 兼容格式）
+	requestBody := map[string]interface{}{
+		"model": aiModel.Name,
+		"messages": []map[string]string{
+			{"role": "user", "content": "hi"},
+		},
+		"max_tokens": 5,
+	}
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "构建请求失败"})
+		return
+	}
+
+	url := strings.TrimRight(aiModel.BaseURL, "/") + "/chat/completions"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建请求失败"})
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+aiModel.APIKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": "接口不可用: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		buf := make([]byte, 512)
+		n, _ := resp.Body.Read(buf)
+		errMsg := ""
+		if n > 0 {
+			errMsg = string(buf[:n])
+		} else {
+			errMsg = resp.Status
+		}
+		c.JSON(http.StatusBadGateway, gin.H{
+			"success": false,
+			"message": "接口返回错误: " + strconv.Itoa(resp.StatusCode) + " " + errMsg,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "接口可用",
+	})
+}
+
+// ReorderAIModelsRequest 排序请求
+type ReorderAIModelsRequest struct {
+	ModelIDs []uint `json:"model_ids" binding:"required,min=1"` // 按新顺序排列的模型 ID 列表
+}
+
+// ReorderAIModels 拖拽排序AI模型
+// @Summary 排序AI模型
+// @Description 根据传入的模型ID顺序更新排序，用于前端拖拽排序后保存
+// @Tags 后台管理-AI模型
+// @Accept json
+// @Produce json
+// @Param request body ReorderAIModelsRequest true "模型ID顺序"
+// @Success 200 {object} map[string]interface{} "排序成功"
+// @Failure 400 {object} map[string]interface{} "参数错误"
+// @Router /admin/ai-models/reorder [put]
+func (h *AIModelHandler) ReorderAIModels(c *gin.Context) {
+	var req ReorderAIModelsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	for i, id := range req.ModelIDs {
+		if err := database.DB.Model(&models.AIModel{}).Where("id = ?", id).Update("sort_order", i).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "排序保存失败"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "排序已保存",
 	})
 }
 
