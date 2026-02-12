@@ -212,6 +212,10 @@
         .theme-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
         .theme-modal-sub { color: var(--text-secondary); font-size: 13px; margin-top: 6px; }
         
+        /* 飞书二维码容器：防止 SDK 生成的 iframe 溢出，确保完整显示可扫码 */
+        #feishuQRContainer > *, #feishuBindQRContainer > * { max-width: 100%; max-height: 100%; object-fit: contain; }
+        #feishuQRContainer iframe, #feishuBindQRContainer iframe { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; }
+        
         /* 加载动画 */
         .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -391,6 +395,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://sf3-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.2.js"></script>
 </head>
 <body>
     <!-- 登录页面 -->
@@ -410,7 +415,18 @@
                 <div class="login-alert" id="loginLockedHint">账号已锁定，暂无法登录。请联系管理员将状态设置为“正常”。</div>
                 <button type="submit" class="btn btn-primary">登录系统</button>
             </form>
+            <div id="feishuLoginArea" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+                <button type="button" class="link-btn" onclick="showFeishuLogin()" style="margin-top:0;"><i class="fa-solid fa-qrcode" style="margin-right:6px;"></i>飞书扫码登录</button>
+            </div>
             <button class="link-btn" onclick="showForgotPassword()">忘记密码？</button>
+        </div>
+        <!-- 飞书扫码登录 -->
+        <div class="login-box" id="feishuBox" style="display:none;">
+            <h1><i class="fa-solid fa-qrcode" style="margin-right:8px;"></i>飞书扫码登录</h1>
+            <p>使用飞书 App 扫描下方二维码完成登录</p>
+            <div id="feishuQRContainer" style="width:280px;height:280px;margin:24px auto;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+            <p style="font-size:12px;color:var(--text-muted);text-align:center;">请使用飞书 App 扫码，二维码有效期为 5 分钟</p>
+            <button class="link-btn" onclick="showLogin()" style="margin-top:16px;">返回密码登录</button>
         </div>
         <!-- 忘记密码 -->
         <div class="login-box" id="forgotBox" style="display:none;">
@@ -513,6 +529,9 @@
             </div>
             <button class="top-toolbar-btn" id="exitImpersonationBtn" onclick="exitImpersonation()" title="退出模拟登录" style="display:none;background:var(--warning);color:#fff;">
                 <i class="fa-solid fa-user-slash" style="font-size:18px;"></i>
+            </button>
+            <button class="top-toolbar-btn" id="feishuBindBtn" onclick="openFeishuBindModal()" title="绑定飞书" style="display:none;">
+                <i class="fa-solid fa-qrcode" style="font-size:18px;"></i>
             </button>
             <button class="top-toolbar-btn" id="themeFab" onclick="openThemeModal()" title="切换主题">
                 <i class="fa-solid fa-palette" style="font-size:18px;"></i>
@@ -1227,6 +1246,35 @@
         </div>
     </div>
 
+    <!-- 飞书绑定弹框 -->
+    <div class="modal" id="feishuBindModal">
+        <div class="modal-content" style="max-width: 380px;">
+            <div class="modal-title"><i class="fa-solid fa-qrcode" style="margin-right:6px;"></i>绑定飞书</div>
+            <div class="modal-subtitle">使用飞书 App 扫码，可将飞书账号绑定到当前用户</div>
+            <div id="feishuBindQRContainer" style="width:260px;height:260px;margin:16px auto;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeFeishuBindModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 为用户绑定飞书 open_id（管理员） -->
+    <div class="modal" id="feishuBindUserModal">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-title"><i class="fa-solid fa-qrcode" style="margin-right:6px;"></i>设置飞书绑定</div>
+            <div class="modal-subtitle">用户：<span id="feishuBindUserModalUsername"></span></div>
+            <div class="form-group">
+                <label>飞书 open_id</label>
+                <input type="text" id="feishuBindUserOpenId" placeholder="留空表示解除绑定">
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">用户可通过右上角「绑定飞书」自助扫码绑定，或将 open_id 提供给管理员填写</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeFeishuBindUserModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveFeishuBindUser()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentPage = 1, totalPages = 1, currentUsername = '', resetToken = '', resetUserId = null, emailEnabled = false;
         let editingExpenseId = null, deleteExpenseId = null, allUsers = [];
@@ -1245,6 +1293,8 @@
             initNavigation();
             setDefaultDates();
             initTheme();
+            initFeishuLogin();
+            checkLoginPageParams();
         });
         
         // 主题切换功能
@@ -1352,6 +1402,7 @@
             document.getElementById('loginBox').style.display = 'block';
             document.getElementById('forgotBox').style.display = 'none';
             document.getElementById('resetBox').style.display = 'none';
+            document.getElementById('feishuBox').style.display = 'none';
             window.location.hash = '';
         }
 
@@ -1359,14 +1410,217 @@
             document.getElementById('loginBox').style.display = 'none';
             document.getElementById('forgotBox').style.display = 'block';
             document.getElementById('resetBox').style.display = 'none';
+            document.getElementById('feishuBox').style.display = 'none';
         }
 
         function showResetPassword(username) {
             document.getElementById('loginBox').style.display = 'none';
             document.getElementById('forgotBox').style.display = 'none';
             document.getElementById('resetBox').style.display = 'block';
+            document.getElementById('feishuBox').style.display = 'none';
             document.getElementById('resetInfo').textContent = `为用户 ${username} 设置新密码`;
         }
+
+        let feishuQRInstance = null;
+
+        let feishuEnabled = false;
+
+        async function initFeishuLogin() {
+            try {
+                const res = await fetch('/admin/feishu/config');
+                const data = await res.json();
+                if (data.success) {
+                    feishuEnabled = true;
+                    const area = document.getElementById('feishuLoginArea');
+                    if (area) area.style.display = 'block';
+                    updateFeishuBindButton();
+                    const usersPage = document.getElementById('page-users');
+                    if (usersPage && usersPage.classList.contains('active')) loadUsers();
+                }
+            } catch (e) {}
+        }
+
+        function updateFeishuBindButton() {
+            const btn = document.getElementById('feishuBindBtn');
+            if (btn) btn.style.display = feishuEnabled ? 'flex' : 'none';
+        }
+
+        function checkLoginPageParams() {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            const feishuBind = params.get('feishu_bind');
+            if (error) {
+                showToast(decodeURIComponent(error), 'error');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            if (feishuBind === 'success') {
+                showToast('飞书绑定成功', 'success');
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        }
+
+        async function showFeishuLogin() {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('forgotBox').style.display = 'none';
+            document.getElementById('resetBox').style.display = 'none';
+            document.getElementById('feishuBox').style.display = 'block';
+
+            const container = document.getElementById('feishuQRContainer');
+            container.innerHTML = '';
+
+            try {
+                const res = await fetch('/admin/feishu/config');
+                const data = await res.json();
+                if (!data.success || !data.data) {
+                    showToast('飞书配置获取失败', 'error');
+                    return;
+                }
+                const authUrl = data.data.auth_url;
+
+                if (typeof QRLogin !== 'undefined') {
+                    feishuQRInstance = new QRLogin({
+                        id: 'feishuQRContainer',
+                        goto: authUrl,
+                        width: 240,
+                        height: 240,
+                        style: 'width:240px;height:240px;'
+                    });
+
+                    window.addEventListener('message', function feishuMessageHandler(event) {
+                        const validOrigin = (feishuQRInstance && typeof feishuQRInstance.matchOrigin === 'function')
+                            ? feishuQRInstance.matchOrigin(event.origin)
+                            : ['https://accounts.feishu.cn', 'https://open.feishu.cn', 'https://passport.feishu.cn', 'https://www.feishu.cn', 'https://login.feishu.cn', 'https://sf3-cn.feishucdn.com'].some(o => event.origin === o);
+                        if (!validOrigin) return;
+                        const raw = event.data;
+                        const tmpCode = typeof raw === 'string' ? raw : (raw && raw.tmp_code ? raw.tmp_code : null);
+                        if (tmpCode && /^[a-zA-Z0-9_-]+$/.test(tmpCode)) {
+                            window.removeEventListener('message', feishuMessageHandler);
+                            const sep = authUrl.indexOf('?') >= 0 ? '&' : '?';
+                            window.location.href = authUrl + sep + 'tmp_code=' + encodeURIComponent(tmpCode);
+                        }
+                    });
+                } else {
+                    container.innerHTML = '<p style="color:var(--text-muted);">加载二维码组件失败</p>';
+                }
+            } catch (e) {
+                showToast('获取飞书配置失败', 'error');
+            }
+        }
+
+        let feishuBindQRInstance = null;
+        let feishuBindMessageHandler = null;
+
+        async function openFeishuBindModal() {
+            const modal = document.getElementById('feishuBindModal');
+            const container = document.getElementById('feishuBindQRContainer');
+            container.innerHTML = '';
+            if (feishuBindMessageHandler) {
+                window.removeEventListener('message', feishuBindMessageHandler);
+                feishuBindMessageHandler = null;
+            }
+            try {
+                const tokenRes = await fetch('/admin/feishu/bind-token', { credentials: 'same-origin' });
+                const tokenData = await tokenRes.json();
+                if (!tokenData.success || !tokenData.data || !tokenData.data.bind_token) {
+                    showToast('请先登录后再绑定飞书', 'error');
+                    return;
+                }
+                const bindToken = tokenData.data.bind_token;
+                const res = await fetch('/admin/feishu/config?state=bind:' + encodeURIComponent(bindToken), { credentials: 'same-origin' });
+                const data = await res.json();
+                if (!data.success || !data.data) {
+                    showToast('飞书配置获取失败', 'error');
+                    return;
+                }
+                modal.classList.add('show');
+                const authUrl = data.data.auth_url;
+                if (typeof QRLogin !== 'undefined') {
+                    feishuBindQRInstance = new QRLogin({
+                        id: 'feishuBindQRContainer',
+                        goto: authUrl,
+                        width: 220,
+                        height: 220,
+                        style: 'width:220px;height:220px;'
+                    });
+                    feishuBindMessageHandler = function(event) {
+                        const validOrigin = (feishuBindQRInstance && typeof feishuBindQRInstance.matchOrigin === 'function')
+                            ? feishuBindQRInstance.matchOrigin(event.origin)
+                            : ['https://accounts.feishu.cn', 'https://open.feishu.cn', 'https://passport.feishu.cn', 'https://www.feishu.cn', 'https://login.feishu.cn', 'https://sf3-cn.feishucdn.com'].some(o => event.origin === o);
+                        if (!validOrigin) return;
+                        const raw = event.data;
+                        const tmpCode = typeof raw === 'string' ? raw : (raw && raw.tmp_code ? raw.tmp_code : null);
+                        if (tmpCode && /^[a-zA-Z0-9_-]+$/.test(tmpCode)) {
+                            window.removeEventListener('message', feishuBindMessageHandler);
+                            feishuBindMessageHandler = null;
+                            closeFeishuBindModal();
+                            const sep = authUrl.indexOf('?') >= 0 ? '&' : '?';
+                            window.location.href = authUrl + sep + 'tmp_code=' + encodeURIComponent(tmpCode);
+                        }
+                    };
+                    window.addEventListener('message', feishuBindMessageHandler);
+                } else {
+                    container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">加载失败</p>';
+                }
+            } catch (e) {
+                showToast('获取飞书配置失败', 'error');
+            }
+        }
+
+        function closeFeishuBindModal() {
+            document.getElementById('feishuBindModal').classList.remove('show');
+            if (feishuBindMessageHandler) {
+                window.removeEventListener('message', feishuBindMessageHandler);
+                feishuBindMessageHandler = null;
+            }
+        }
+
+        (function bindFeishuBindModalOverlay() {
+            const modal = document.getElementById('feishuBindModal');
+            if (!modal) return;
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeFeishuBindModal(); });
+        })();
+
+        let feishuBindUserId = null;
+
+        function openFeishuBindUserModal(userId, username, currentOpenId) {
+            feishuBindUserId = userId;
+            document.getElementById('feishuBindUserModalUsername').textContent = username;
+            document.getElementById('feishuBindUserOpenId').value = currentOpenId || '';
+            document.getElementById('feishuBindUserModal').classList.add('show');
+        }
+
+        function closeFeishuBindUserModal() {
+            feishuBindUserId = null;
+            document.getElementById('feishuBindUserModal').classList.remove('show');
+        }
+
+        async function saveFeishuBindUser() {
+            if (!feishuBindUserId) return;
+            const openId = document.getElementById('feishuBindUserOpenId').value.trim();
+            try {
+                const res = await fetch(`/admin/users/${feishuBindUserId}/feishu`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feishu_open_id: openId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('保存成功', 'success');
+                    closeFeishuBindUserModal();
+                    loadUsers();
+                } else {
+                    showToast(data.message || '保存失败', 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
+
+        (function bindFeishuBindUserModalOverlay() {
+            const modal = document.getElementById('feishuBindUserModal');
+            if (!modal) return;
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeFeishuBindUserModal(); });
+        })();
 
         document.getElementById('forgotForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1512,6 +1766,7 @@
             
             // 显示右上角工具栏
             document.getElementById('topToolbar').style.display = 'flex';
+            updateFeishuBindButton();
         }
 
         // 根据权限更新UI
@@ -1942,6 +2197,7 @@
                         <td>
                             <div class="action-btns">
                                 <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">重置密码</button>
+                                ${feishuEnabled ? `<button class="btn btn-secondary btn-sm" onclick="openFeishuBindUserModal(${user.id}, '${(user.username || '').replace(/'/g, "\\'")}', '${(user.feishu_open_id || '').replace(/'/g, "\\'")}')">${user.feishu_open_id ? '已绑定' : '绑定飞书'}</button>` : ''}
                                 ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
                                 ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
                                 ${!isCurrentUser ? `

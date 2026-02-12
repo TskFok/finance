@@ -672,6 +672,83 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 	})
 }
 
+// UpdateUserFeishuRequest 更新用户飞书绑定请求
+type UpdateUserFeishuRequest struct {
+	FeishuOpenID string `json:"feishu_open_id"`
+}
+
+// UpdateUserFeishu 设置用户飞书绑定（仅管理员）
+// @Summary 设置用户飞书绑定
+// @Description 管理员可为用户设置 feishu_open_id，设置后该用户可通过飞书扫码登录
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body UpdateUserFeishuRequest true "飞书 open_id"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id}/feishu [put]
+func (h *AdminHandler) UpdateUserFeishu(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	var req UpdateUserFeishuRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误"})
+		return
+	}
+
+	feishuOpenID := strings.TrimSpace(req.FeishuOpenID)
+	if feishuOpenID != "" {
+		var other models.User
+		if err := database.DB.Where("feishu_open_id = ? AND id != ?", feishuOpenID, userID).First(&other).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "该飞书账号已被其他用户绑定"})
+			return
+		}
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	var openIDPtr *string
+	if feishuOpenID != "" {
+		openIDPtr = &feishuOpenID
+	}
+	updates := map[string]interface{}{"feishu_open_id": openIDPtr}
+	if feishuOpenID == "" {
+		updates["feishu_union_id"] = ""
+	}
+	if err := database.DB.Model(&user).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "飞书绑定更新成功",
+		"data":    user,
+	})
+}
+
 // GetStatistics 获取统计数据
 // @Summary 获取统计数据
 // @Description 获取支出和收入的统计数据，包括总金额、总记录数、类别统计等。管理员可查看所有数据，非管理员只能查看自己的数据。

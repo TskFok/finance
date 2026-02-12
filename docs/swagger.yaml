@@ -451,6 +451,11 @@ definitions:
       type:
         type: string
     type: object
+  api.UpdateUserFeishuRequest:
+    properties:
+      feishu_open_id:
+        type: string
+    type: object
   api.UpdateUserPasswordRequest:
     properties:
       new_password:
@@ -581,6 +586,9 @@ definitions:
       created_at:
         type: string
       email:
+        type: string
+      feishu_open_id:
+        description: 飞书 open_id，用于扫码登录匹配
         type: string
       id:
         type: integer
@@ -1398,6 +1406,40 @@ paths:
       summary: 导出消费记录为Excel
       tags:
       - 后台管理-导出
+  /admin/feishu/callback:
+    get:
+      description: 飞书授权后重定向到此地址，使用 code 换取 token 并完成登录
+      parameters:
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "302":
+          description: 重定向到登录页并携带 error 参数
+      summary: 飞书授权回调
+      tags:
+      - 后台管理
+  /admin/feishu/config:
+    get:
+      description: 返回前端初始化二维码所需参数，仅当飞书登录已启用时有效
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 配置信息
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 飞书登录未启用
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取飞书扫码登录配置
+      tags:
+      - 后台管理
   /admin/income-categories:
     get:
       description: 获取所有收入类别列表，支持按名称模糊搜索
@@ -2058,6 +2100,49 @@ paths:
             additionalProperties: true
             type: object
       summary: 设置管理员权限
+      tags:
+      - 后台管理-用户管理
+  /admin/users/{id}/feishu:
+    put:
+      consumes:
+      - application/json
+      description: 管理员可为用户设置 feishu_open_id，设置后该用户可通过飞书扫码登录
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 飞书 open_id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateUserFeishuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 权限不足
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 设置用户飞书绑定
       tags:
       - 后台管理-用户管理
   /admin/users/{id}/password:

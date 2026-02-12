@@ -41,6 +41,7 @@
 
 #### 认证与安全
 - ✅ 管理员登录/退出
+- ✅ 飞书扫码登录（可选，需在飞书开放平台创建自建应用）
 - ✅ Cookie 会话管理
 - ✅ 密码重置（邮件链接方式）
 - ✅ 管理员直接重置用户密码
@@ -122,6 +123,13 @@ email:
   port: 465
   username: "your_email@qq.com"
   password: "your_authorization_code"
+
+# 飞书扫码登录（可选）
+feishu:
+  enabled: true
+  app_id: "cli_xxxx"
+  app_secret: "your_app_secret"
+  auto_create_user: false  # 建议 false，由管理员在用户管理中绑定
 ```
 
 然后指定配置文件启动：
@@ -271,6 +279,8 @@ FINANCE_DATABASE_PASSWORD=secret ./finance-linux-amd64
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | POST | /admin/login | 管理员登录 | 否 |
+| GET | /admin/feishu/config | 获取飞书扫码登录配置 | 否 |
+| GET | /admin/feishu/callback | 飞书 OAuth 回调 | 否 |
 | POST | /admin/logout | 退出登录 | Cookie |
 | POST | /admin/password/request-reset | 请求密码重置邮件 | 否 |
 | GET | /admin/password/verify-token | 验证重置令牌 | 否 |
@@ -300,6 +310,7 @@ FINANCE_DATABASE_PASSWORD=secret ./finance-linux-amd64
 | PUT | /admin/income-categories/:id | 更新收入类别 | Cookie |
 | DELETE | /admin/income-categories/:id | 删除收入类别 | Cookie |
 | GET | /admin/users | 获取所有用户 | Cookie |
+| PUT | /admin/users/:id/feishu | 设置用户飞书绑定 | Cookie |
 | GET | /admin/statistics | 获取统计数据（包含收入和支出） | Cookie |
 | GET | /admin/export/excel | 导出 Excel 文件 | Cookie |
 
@@ -371,14 +382,32 @@ val retrofit = Retrofit.Builder()
 | FINANCE_EMAIL_PORT | email.port | 465 |
 | FINANCE_EMAIL_USERNAME | email.username | (空) |
 | FINANCE_EMAIL_PASSWORD | email.password | (空) |
+| FINANCE_FEISHU_ENABLED | feishu.enabled | false |
+| FINANCE_FEISHU_APP_ID | feishu.app_id | (空) |
+| FINANCE_FEISHU_APP_SECRET | feishu.app_secret | (空) |
+
+### 飞书扫码登录配置
+
+1. 登录 [飞书开放平台](https://open.feishu.cn/) 创建自建应用
+2. 启用「网页应用」能力，配置重定向 URL：`{base_url}/admin/feishu/callback`
+3. 在 config.yaml 中设置 `feishu.enabled: true`、`app_id`、`app_secret`
+4. 用户绑定：管理员在用户管理中为已存在用户设置飞书 open_id，或用户登录后通过右上角「绑定飞书」自助扫码绑定
+5. `auto_create_user`：设为 true 时，首次飞书扫码将自动创建新用户（建议 false）
+
+**扫码报错 4401（该应用暂不可用）排查：**
+
+- 重定向 URL 必须与飞书后台「安全设置 → 重定向 URL」中的配置**完全一致**（协议、域名、端口、路径）
+- 若本机调试，在飞书后台添加：`http://localhost:8811/admin/feishu/callback`（端口需与 `server.port` 一致）
+- 确保 `server.base_url` 配置正确，例如：`http://localhost:8811` 或 `https://your-domain.com`
 
 ## 📁 项目结构
 
 ```
 finance/
 ├── api/                    # API 处理器
-│   ├── admin.go            # 后台管理 API
-│   ├── auth.go             # 用户认证（App端）
+│   ├── admin.go             # 后台管理 API
+│   ├── auth.go              # 用户认证（App端）
+│   ├── feishu_auth.go       # 飞书扫码登录
 │   ├── expense.go          # 消费记录
 │   ├── income.go           # 收入管理
 │   ├── category.go         # 消费类别管理
@@ -413,7 +442,8 @@ finance/
 ├── router/                 # 路由配置
 │   └── router.go           # 路由设置
 ├── service/                # 业务服务
-│   └── email.go            # 邮件服务
+│   ├── email.go            # 邮件服务
+│   └── feishu.go           # 飞书 OAuth API
 ├── web/                    # 前端资源（嵌入）
 │   ├── embed.go            # 前端嵌入声明
 │   └── index.html          # 后台管理页面

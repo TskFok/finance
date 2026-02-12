@@ -39,10 +39,13 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// 后台管理 API
 	adminHandler := api.NewAdminHandler()
 	passwordResetHandler := api.NewPasswordResetHandler(cfg)
+	feishuAuthHandler := api.NewFeishuAuthHandler(cfg)
 	admin := r.Group("/admin")
 	{
 		admin.POST("/login", adminHandler.AdminLogin)
 		admin.POST("/logout", adminHandler.AdminLogout)
+		admin.GET("/feishu/config", feishuAuthHandler.GetFeishuConfig)
+		admin.GET("/feishu/callback", feishuAuthHandler.FeishuCallback)
 
 		// 密码重置（无需登录）
 		admin.POST("/password/request-reset", passwordResetHandler.RequestPasswordReset)
@@ -53,6 +56,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		adminAuth := admin.Group("")
 		adminAuth.Use(AdminAuthMiddleware())
 		{
+			adminAuth.GET("/feishu/bind-token", feishuAuthHandler.GetFeishuBindToken)
 			adminAuth.GET("/current-user", adminHandler.GetCurrentUserInfo)
 			adminAuth.GET("/expenses", adminHandler.GetAllExpenses)
 			adminAuth.POST("/expenses", adminHandler.CreateExpense)
@@ -76,6 +80,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.DELETE("/users/:id", adminHandler.DeleteUser)
 			adminAuth.PUT("/users/:id/admin", adminHandler.SetAdmin)
 			adminAuth.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
+			adminAuth.PUT("/users/:id/feishu", adminHandler.UpdateUserFeishu)
 			adminAuth.POST("/users/impersonate", adminHandler.ImpersonateUser)
 			adminAuth.POST("/users/exit-impersonation", adminHandler.ExitImpersonation)
 			adminAuth.GET("/statistics", adminHandler.GetStatistics)

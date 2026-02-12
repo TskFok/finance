@@ -33,3 +33,10 @@ email:
   password: ""
   from: "记账系统"
 
+# 飞书扫码登录配置
+feishu:
+  enabled: false           # 是否启用飞书扫码登录
+  app_id: ""               # 飞书应用 App ID（在开放平台创建自建应用后获取）
+  app_secret: ""           # 飞书应用 App Secret
+  auto_create_user: false  # 首次扫码是否自动创建用户（建议 false，由管理员先绑定）
+

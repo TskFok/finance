@@ -16,6 +16,15 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Email    EmailConfig    `mapstructure:"email"`
+	Feishu   FeishuConfig  `mapstructure:"feishu"`
+}
+
+// FeishuConfig 飞书配置（扫码登录）
+type FeishuConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	AppID         string `mapstructure:"app_id"`          // 等同于 client_id，从飞书开放平台获取
+	AppSecret     string `mapstructure:"app_secret"`      // 等同于 client_secret
+	AutoCreateUser bool  `mapstructure:"auto_create_user"` // 首次扫码是否自动创建用户，默认 false
 }
 
 // ServerConfig 服务器配置
@@ -152,4 +161,5 @@ func PrintConfig() {
 		GlobalConfig.Database.Port,
 		GlobalConfig.Database.DBName)
 	log.Printf("  邮件服务: %v", GlobalConfig.Email.Enabled)
+	log.Printf("  飞书扫码登录: %v", GlobalConfig.Feishu.Enabled)
 }

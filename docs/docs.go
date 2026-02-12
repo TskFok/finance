@@ -1189,6 +1189,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/feishu/callback": {
+            "get": {
+                "description": "飞书授权后重定向到此地址，使用 code 换取 token 并完成登录",
+                "tags": [
+                    "后台管理"
+                ],
+                "summary": "飞书授权回调",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "授权码",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "重定向到登录页并携带 error 参数"
+                    }
+                }
+            }
+        },
+        "/admin/feishu/config": {
+            "get": {
+                "description": "返回前端初始化二维码所需参数，仅当飞书登录已启用时有效",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理"
+                ],
+                "summary": "获取飞书扫码登录配置",
+                "responses": {
+                    "200": {
+                        "description": "配置信息",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "飞书登录未启用",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/admin/income-categories": {
             "get": {
                 "description": "获取所有收入类别列表，支持按名称模糊搜索",
@@ -2227,6 +2278,69 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "不能取消自己的管理员权限",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "用户不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{id}/feishu": {
+            "put": {
+                "description": "管理员可为用户设置 feishu_open_id，设置后该用户可通过飞书扫码登录",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "后台管理-用户管理"
+                ],
+                "summary": "设置用户飞书绑定",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "飞书 open_id",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateUserFeishuRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -4968,6 +5082,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UpdateUserFeishuRequest": {
+            "type": "object",
+            "properties": {
+                "feishu_open_id": {
+                    "type": "string"
+                }
+            }
+        },
         "api.UpdateUserPasswordRequest": {
             "type": "object",
             "required": [
@@ -5159,6 +5281,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "email": {
+                    "type": "string"
+                },
+                "feishu_open_id": {
+                    "description": "飞书 open_id，用于扫码登录匹配",
                     "type": "string"
                 },
                 "id": {
