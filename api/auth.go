@@ -145,14 +145,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// ProfileResponse profile 接口返回结构（仅包含必要字段）
+type ProfileResponse struct {
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // GetProfile 获取用户信息
 // @Summary 获取当前用户信息
-// @Description 获取当前登录用户的详细信息
+// @Description 获取当前登录用户的 username、email、status、created_at
 // @Tags 认证
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} Response{data=models.User} "获取成功"
+// @Success 200 {object} Response{data=ProfileResponse} "获取成功"
 // @Failure 401 {object} Response "未授权"
 // @Router /api/v1/auth/profile [get]
 func (h *AuthHandler) GetProfile(c *gin.Context) {
@@ -164,7 +172,12 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	Success(c, user)
+	Success(c, ProfileResponse{
+		Username:  user.Username,
+		Email:     user.Email,
+		Status:    user.Status,
+		CreatedAt: user.CreatedAt,
+	})
 }
 
 // ChangePasswordRequest 修改密码请求
