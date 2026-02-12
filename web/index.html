@@ -335,6 +335,8 @@
         .icon-btn.danger:hover { background: rgba(248, 113, 113, 0.1); border-color: #f87171; }
         .icon-btn.secondary { color: var(--text-secondary); border-color: var(--border); }
         .icon-btn.secondary:hover { background: var(--bg-input); color: var(--text-primary); border-color: var(--text-secondary); }
+        .icon-btn.warning { color: var(--warning); border-color: rgba(251, 191, 36, 0.4); }
+        .icon-btn.warning:hover { background: rgba(251, 191, 36, 0.1); border-color: var(--warning); }
         /* Tooltip 样式 */
         .icon-btn[data-tooltip] { position: relative; }
         .icon-btn[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 6px 12px; background: var(--bg-card); color: var(--text-primary); font-size: 12px; white-space: nowrap; border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 10000; pointer-events: none; }
@@ -405,8 +407,8 @@
             <p>后台管理系统，请登录以继续</p>
             <form id="loginForm">
                 <div class="form-group">
-                    <label>用户名</label>
-                    <input type="text" id="loginUsername" placeholder="请输入用户名" required>
+                    <label>用户名或邮箱</label>
+                    <input type="text" id="loginUsername" placeholder="请输入用户名或邮箱" required>
                 </div>
                 <div class="form-group">
                     <label>密码</label>
@@ -428,24 +430,33 @@
             <p style="font-size:12px;color:var(--text-muted);text-align:center;">请使用飞书 App 扫码，二维码有效期为 5 分钟</p>
             <button class="link-btn" onclick="showLogin()" style="margin-top:16px;">返回密码登录</button>
         </div>
-        <!-- 忘记密码 -->
+        <!-- 忘记密码：发送验证码 -->
         <div class="login-box" id="forgotBox" style="display:none;">
             <h1><i class="fa-solid fa-key" style="margin-right:8px;"></i>忘记密码</h1>
-            <p>输入注册邮箱，我们将发送重置链接</p>
+            <p>输入注册邮箱，我们将发送验证码</p>
             <form id="forgotForm">
                 <div class="form-group">
                     <label>邮箱地址</label>
                     <input type="email" id="forgotEmail" placeholder="请输入注册邮箱" required>
                 </div>
-                <button type="submit" class="btn btn-primary">发送重置邮件</button>
+                <button type="submit" class="btn btn-primary">发送验证码</button>
             </form>
+            <p style="font-size:12px;margin-top:8px;"><a href="javascript:void(0)" onclick="showResetWithCode()" class="link-btn" style="display:inline;padding:0;">已收到验证码？直接输入</a></p>
             <button class="link-btn" onclick="showLogin()">返回登录</button>
         </div>
-        <!-- 重置密码 -->
+        <!-- 重置密码：验证码+新密码 -->
         <div class="login-box" id="resetBox" style="display:none;">
             <h1><i class="fa-solid fa-lock" style="margin-right:8px;"></i>重置密码</h1>
-            <p id="resetInfo">请输入新密码</p>
+            <p id="resetInfo">请输入验证码和新密码</p>
             <form id="resetForm">
+                <div class="form-group">
+                    <label>邮箱地址</label>
+                    <input type="email" id="resetEmail" placeholder="请输入注册邮箱" required>
+                </div>
+                <div class="form-group">
+                    <label>验证码</label>
+                    <input type="text" id="resetCode" placeholder="请输入6位验证码" maxlength="6" pattern="[0-9]{6}" required>
+                </div>
                 <div class="form-group">
                     <label>新密码</label>
                     <input type="password" id="newPassword" placeholder="请输入新密码（至少6位）" required minlength="6">
@@ -456,7 +467,7 @@
                 </div>
                 <button type="submit" class="btn btn-primary">确认重置</button>
             </form>
-            <button class="link-btn" onclick="showLogin()">返回登录</button>
+            <button class="link-btn" onclick="showForgotPassword()">返回上一步</button>
         </div>
     </div>
 
@@ -924,6 +935,32 @@
         </div>
     </div>
 
+    <!-- 绑定邮箱模态框 -->
+    <div class="modal" id="bindEmailModal">
+        <div class="modal-content">
+            <div class="modal-title"><i class="fa-solid fa-envelope" style="margin-right:6px;"></i>绑定/修改邮箱</div>
+            <div class="modal-subtitle">用户：<span id="bindEmailModalUser"></span></div>
+            <div class="form-group">
+                <label>邮箱地址</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="email" id="bindEmailInput" placeholder="请输入邮箱地址" style="flex:1;">
+                    <button type="button" class="btn btn-secondary" id="bindEmailSendCodeBtn" onclick="sendBindEmailCode()">发送验证码</button>
+                </div>
+            </div>
+            <div class="form-group" id="bindEmailCodeGroup">
+                <label>验证码</label>
+                <input type="text" id="bindEmailCodeInput" placeholder="请输入收到的6位验证码" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+            </div>
+            <div class="modal-actions" style="justify-content:space-between;">
+                <div>
+                    <button class="btn btn-secondary" onclick="closeBindEmailModal()">取消</button>
+                    <button class="btn btn-primary" onclick="confirmBindEmail()" id="bindEmailConfirmBtn">确认绑定</button>
+                </div>
+                <button class="btn btn-secondary" id="bindEmailClearBtn" onclick="clearUserEmail()" style="visibility:hidden;">清除邮箱</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 添加/编辑消费记录模态框 -->
     <div class="modal" id="expenseModal">
         <div class="modal-content" style="max-width: 520px;">
@@ -1275,7 +1312,7 @@
     </div>
 
     <script>
-        let currentPage = 1, totalPages = 1, currentUsername = '', resetToken = '', resetUserId = null, emailEnabled = false;
+        let currentPage = 1, totalPages = 1, currentUsername = '', resetUserId = null, emailEnabled = false;
         let editingExpenseId = null, deleteExpenseId = null, allUsers = [];
         let editingAIModelId = null, deleteAIModelId = null, allAIModels = [];
         let chatStreaming = false, chatCurrentAIEl = null, chatHistoryPage = 1;
@@ -1287,7 +1324,6 @@
         let currentUserId = null; // 当前用户ID
 
         document.addEventListener('DOMContentLoaded', () => {
-            checkResetToken();
             checkAuth();
             initNavigation();
             setDefaultDates();
@@ -1375,28 +1411,6 @@
             });
         })();
 
-        function checkResetToken() {
-            const hash = window.location.hash;
-            if (hash.includes('reset-password')) {
-                const params = new URLSearchParams(hash.split('?')[1]);
-                resetToken = params.get('token');
-                if (resetToken) verifyResetToken();
-            }
-        }
-
-        async function verifyResetToken() {
-            try {
-                const res = await fetch(`/admin/password/verify-token?token=${resetToken}`);
-                const data = await res.json();
-                if (data.success) {
-                    showResetPassword(data.data.username);
-                } else {
-                    showToast(data.message, 'error');
-                    showLogin();
-                }
-            } catch (e) { showToast('验证失败', 'error'); showLogin(); }
-        }
-
         function showLogin() {
             document.getElementById('loginBox').style.display = 'block';
             document.getElementById('forgotBox').style.display = 'none';
@@ -1412,12 +1426,21 @@
             document.getElementById('feishuBox').style.display = 'none';
         }
 
-        function showResetPassword(username) {
+        function showResetPasswordStep(email, readOnly = true) {
             document.getElementById('loginBox').style.display = 'none';
             document.getElementById('forgotBox').style.display = 'none';
             document.getElementById('resetBox').style.display = 'block';
             document.getElementById('feishuBox').style.display = 'none';
-            document.getElementById('resetInfo').textContent = `为用户 ${username} 设置新密码`;
+            const emailEl = document.getElementById('resetEmail');
+            emailEl.value = email || '';
+            emailEl.readOnly = readOnly;
+            document.getElementById('resetCode').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+
+        function showResetWithCode() {
+            showResetPasswordStep('', false);
         }
 
         let feishuQRInstance = null;
@@ -1623,7 +1646,7 @@
 
         document.getElementById('forgotForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('forgotEmail').value;
+            const email = document.getElementById('forgotEmail').value.trim();
             try {
                 const res = await fetch('/admin/password/request-reset', {
                     method: 'POST',
@@ -1632,24 +1655,28 @@
                 });
                 const data = await res.json();
                 showToast(data.message, data.success ? 'success' : 'error');
-                if (data.success) showLogin();
+                if (data.success) showResetPasswordStep(email, true);
             } catch (e) { showToast('请求失败', 'error'); }
         });
 
         document.getElementById('resetForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const email = document.getElementById('resetEmail').value.trim();
+            const code = document.getElementById('resetCode').value.trim();
             const newPwd = document.getElementById('newPassword').value;
             const confirmPwd = document.getElementById('confirmPassword').value;
             if (newPwd !== confirmPwd) { showToast('两次密码不一致', 'error'); return; }
+            if (!email) { showToast('请输入邮箱', 'error'); return; }
+            if (code.length !== 6) { showToast('请输入6位验证码', 'error'); return; }
             try {
                 const res = await fetch('/admin/password/reset', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: resetToken, new_password: newPwd })
+                    body: JSON.stringify({ email, code, new_password: newPwd })
                 });
                 const data = await res.json();
                 showToast(data.message, data.success ? 'success' : 'error');
-                if (data.success) { showLogin(); window.location.hash = ''; }
+                if (data.success) { showLogin(); showToast('请使用新密码重新登录', 'success'); }
             } catch (e) { showToast('重置失败', 'error'); }
         });
 
@@ -1775,11 +1802,25 @@
             if (usersNavItem) {
                 usersNavItem.style.display = isAdmin ? 'flex' : 'none';
             }
+            // 非管理员隐藏：消费类别、收入类别、AI模型
+            ['categories', 'income-categories', 'ai-models'].forEach(p => {
+                const el = document.querySelector(`.nav-item[data-page="${p}"]`);
+                if (el) el.style.display = isAdmin ? 'flex' : 'none';
+            });
             
             // 如果当前在用户管理页面但不是管理员，跳转到首页
             const usersPage = document.getElementById('page-users');
             if (usersPage && usersPage.classList.contains('active') && !isAdmin) {
                 switchPage('dashboard');
+            }
+            // 非管理员若在消费类别、收入类别、AI模型页面，跳转到首页
+            if (!isAdmin) {
+                ['categories', 'income-categories', 'ai-models'].forEach(p => {
+                    const pageEl = document.getElementById(`page-${p}`);
+                    if (pageEl && pageEl.classList.contains('active')) {
+                        switchPage('dashboard');
+                    }
+                });
             }
             
             // 更新数据概览页面的副标题
@@ -1918,8 +1959,9 @@
             const candidate = fromHash || fromStorage;
 
             if (!isValidPage(candidate)) return 'dashboard';
-            // 非管理员不能恢复到用户管理
-            if (!isAdmin && candidate === 'users') return 'dashboard';
+            // 非管理员不能恢复到用户管理、消费类别、收入类别、AI模型
+            const adminOnlyPages = ['users', 'categories', 'income-categories', 'ai-models'];
+            if (!isAdmin && adminOnlyPages.includes(candidate)) return 'dashboard';
             return candidate;
         }
 
@@ -1936,6 +1978,11 @@
         }
 
         function switchPage(page) {
+            // 非管理员不能访问：用户管理、消费类别、收入类别、AI模型
+            const adminOnlyPages = ['users', 'categories', 'income-categories', 'ai-models'];
+            if (!isAdmin && adminOnlyPages.includes(page)) {
+                page = 'dashboard';
+            }
             // 默认持久化当前页面，便于刷新恢复
             // 允许内部调用时通过第二参关闭持久化，避免重复写入或干扰 reset-password hash
             const opts = arguments.length > 1 ? arguments[1] : null;
@@ -2015,7 +2062,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    currentUsername = username;
+                    currentUsername = (data.data && data.data.username) ? data.data.username : username;
                     // 保存用户ID到 localStorage 和变量
                     if (data.data && data.data.user_id) {
                         currentUserId = data.data.user_id;
@@ -2195,10 +2242,10 @@
                         <td>${formatDateTime(user.created_at)}</td>
                         <td>
                             <div class="action-btns">
-                                <button class="btn btn-warning btn-sm" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')">重置密码</button>
-                                ${feishuEnabled ? `<button class="btn btn-secondary btn-sm" onclick="openFeishuBindUserModal(${user.id}, '${(user.username || '').replace(/'/g, "\\'")}', '${(user.feishu_open_id || '').replace(/'/g, "\\'")}')">${user.feishu_open_id ? '已绑定' : '绑定飞书'}</button>` : ''}
-                                ${!isCurrentUser ? `<button class="btn btn-primary btn-sm" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})">${user.is_admin ? '取消管理员' : '设为管理员'}</button>` : ''}
-                                ${user.email && emailEnabled ? `<button class="btn btn-primary btn-sm" onclick="sendResetEmail(${user.id})">发送邮件</button>` : ''}
+                                <button class="icon-btn warning" data-tooltip="重置密码" onclick="openResetModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="重置密码"><i class="fa-solid fa-key"></i></button>
+                                <button class="icon-btn secondary" data-tooltip="${user.email ? '修改邮箱' : '绑定邮箱'}" onclick="openBindEmailModal(${user.id}, '${user.username.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}', '${(user.email || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" title="${user.email ? '修改邮箱' : '绑定邮箱'}"><i class="fa-solid fa-envelope"></i></button>
+                                ${feishuEnabled ? `<button class="icon-btn secondary" data-tooltip="${user.feishu_open_id ? '已绑定' : '绑定飞书'}" onclick="openFeishuBindUserModal(${user.id}, '${(user.username || '').replace(/'/g, "\\'")}', '${(user.feishu_open_id || '').replace(/'/g, "\\'")}')" title="${user.feishu_open_id ? '已绑定' : '绑定飞书'}"><i class="fa-solid ${user.feishu_open_id ? 'fa-link' : 'fa-qrcode'}"></i></button>` : ''}
+                                ${!isCurrentUser ? `<button class="icon-btn info" data-tooltip="${user.is_admin ? '取消管理员' : '设为管理员'}" onclick="openSetAdminModal(${user.id}, '${user.username.replace(/'/g, "\\'")}', ${user.is_admin})" title="${user.is_admin ? '取消管理员' : '设为管理员'}"><i class="fa-solid fa-user-shield"></i></button>` : ''}
                                 ${!isCurrentUser ? `
                                     ${!user.is_admin && canImpersonate ? `<button class="icon-btn info" data-tooltip="模拟登录" onclick="impersonateUser(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="模拟登录"><i class="fa-solid fa-user-secret"></i></button>` : ''}
                                     <button class="icon-btn danger" data-tooltip="删除" onclick="openDeleteUserModal(${user.id}, '${user.username.replace(/'/g, "\\'")}')" title="删除"><i class="fa-solid fa-trash"></i></button>
@@ -2237,6 +2284,97 @@
         }
 
         function closeResetModal() { document.getElementById('resetModal').classList.remove('show'); resetUserId = null; }
+
+        let bindEmailUserId = null;
+        let bindEmailCurrentEmail = '';
+        function openBindEmailModal(userId, username, currentEmail) {
+            bindEmailUserId = userId;
+            bindEmailCurrentEmail = currentEmail || '';
+            document.getElementById('bindEmailModalUser').textContent = username;
+            document.getElementById('bindEmailInput').value = bindEmailCurrentEmail;
+            document.getElementById('bindEmailCodeInput').value = '';
+            document.getElementById('bindEmailClearBtn').style.visibility = bindEmailCurrentEmail ? 'visible' : 'hidden';
+            document.getElementById('bindEmailModal').classList.add('show');
+        }
+        function closeBindEmailModal() {
+            document.getElementById('bindEmailModal').classList.remove('show');
+            bindEmailUserId = null;
+            bindEmailCurrentEmail = '';
+        }
+        (function bindEmailModalOverlay() {
+            const modal = document.getElementById('bindEmailModal');
+            if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeBindEmailModal(); });
+        })();
+        async function sendBindEmailCode() {
+            const email = document.getElementById('bindEmailInput').value.trim();
+            if (!email) { showToast('请先输入邮箱地址', 'warning'); return; }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('请输入有效的邮箱地址', 'warning'); return; }
+            if (!bindEmailUserId) return;
+            const btn = document.getElementById('bindEmailSendCodeBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/admin/users/email/send-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: bindEmailUserId, email })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    let sec = 60;
+                    const t = setInterval(function() {
+                        btn.textContent = sec + '秒后重发';
+                        if (--sec <= 0) { clearInterval(t); btn.disabled = false; btn.textContent = '发送验证码'; }
+                    }, 1000);
+                } else {
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                showToast('发送失败', 'error');
+                btn.disabled = false;
+            }
+        }
+        async function confirmBindEmail() {
+            const email = document.getElementById('bindEmailInput').value.trim();
+            const code = document.getElementById('bindEmailCodeInput').value.trim();
+            if (!email) { showToast('请先输入邮箱地址并发送验证码', 'warning'); return; }
+            if (!code || code.length !== 6) { showToast('请输入6位验证码', 'warning'); return; }
+            if (!bindEmailUserId) return;
+            try {
+                const res = await fetch(`/admin/users/${bindEmailUserId}/email`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    closeBindEmailModal();
+                    loadUsers();
+                }
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
+        async function clearUserEmail() {
+            if (!bindEmailUserId) return;
+            if (!confirm('确定要清除该用户的邮箱吗？')) return;
+            try {
+                const res = await fetch(`/admin/users/${bindEmailUserId}/email`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: '', code: '' })
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    closeBindEmailModal();
+                    loadUsers();
+                }
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
 
         async function confirmAdminReset() {
             const newPassword = document.getElementById('adminNewPassword').value;
