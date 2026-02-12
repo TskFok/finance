@@ -32,9 +32,10 @@ type RequestResetRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
-// ResetPasswordRequest 重置密码请求
+// ResetPasswordRequest 重置密码请求（验证码流程）
 type ResetPasswordRequest struct {
-	Token       string `json:"token" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Code        string `json:"code" binding:"required,len=6"`
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
@@ -44,15 +45,16 @@ type AdminResetPasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
-// RequestPasswordReset 请求密码重置（发送邮件）
+// RequestPasswordReset 请求密码重置（发送验证码）
 // @Summary 请求密码重置
-// @Description 通过邮箱请求密码重置，系统会发送包含重置链接的邮件。为了安全，即使用户不存在也返回成功。
+// @Description 通过邮箱请求密码重置，系统会发送验证码到邮箱。为了安全，即使用户不存在也返回成功。
 // @Tags 后台管理-密码重置
 // @Accept json
 // @Produce json
 // @Param request body RequestResetRequest true "邮箱地址"
 // @Success 200 {object} map[string]interface{} "请求成功（无论用户是否存在）"
 // @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 429 {object} map[string]interface{} "请求过于频繁"
 // @Failure 500 {object} map[string]interface{} "邮件发送失败"
 // @Router /admin/password/request-reset [post]
 func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
@@ -68,48 +70,46 @@ func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
 		// 为了安全，即使用户不存在也返回成功
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "如果该邮箱已注册，您将收到密码重置邮件",
+			"message": "如果该邮箱已注册，您将收到密码重置验证码",
 		})
 		return
 	}
 
-	// 检查是否有未使用的有效令牌
-	var existingToken models.PasswordReset
-	if err := database.DB.Where("user_id = ? AND used = ? AND expires_at > ?", user.ID, false, time.Now()).First(&existingToken).Error; err == nil {
-		// 已有有效令牌，提示用户检查邮箱
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "已发送过重置邮件，请检查您的邮箱（包括垃圾邮件）",
-		})
-		return
+	// 检查是否有未使用的有效验证码（防止频繁发送）
+	var existingReset models.PasswordReset
+	if err := database.DB.Where("user_id = ? AND used = ? AND expires_at > ?", user.ID, false, time.Now()).First(&existingReset).Error; err == nil {
+		if time.Since(existingReset.CreatedAt) < time.Minute {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"message": "请求过于频繁，请稍后再试",
+			})
+			return
+		}
+		database.DB.Model(&existingReset).Update("used", true)
 	}
 
-	// 生成新令牌
-	token, err := models.GenerateToken()
+	// 生成6位数字验证码
+	code, err := models.GenerateVerificationCode()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成令牌失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成验证码失败"})
 		return
 	}
 
-	// 保存令牌
+	// 保存验证码
 	passwordReset := models.PasswordReset{
 		UserID:    user.ID,
-		Token:     token,
+		Token:     code,
 		Email:     req.Email,
-		ExpiresAt: time.Now().Add(30 * time.Minute), // 30分钟有效期
+		ExpiresAt: time.Now().Add(10 * time.Minute), // 10分钟有效期
 	}
 
 	if err := database.DB.Create(&passwordReset).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建重置令牌失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建重置验证码失败"})
 		return
 	}
 
-	// 生成重置链接
-	resetLink := h.cfg.Server.BaseURL + "/#/reset-password?token=" + token
-
-	// 发送邮件
-	if err := h.emailService.SendPasswordResetEmail(req.Email, user.Username, resetLink); err != nil {
-		// 邮件发送失败，删除令牌
+	// 发送验证码邮件
+	if err := h.emailService.SendAppPasswordResetEmail(req.Email, user.Username, code); err != nil {
 		database.DB.Delete(&passwordReset)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -120,65 +120,19 @@ func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "密码重置邮件已发送，请检查您的邮箱",
-	})
-}
-
-// VerifyResetToken 验证重置令牌
-// @Summary 验证重置令牌
-// @Description 验证密码重置令牌是否有效，返回关联的用户信息
-// @Tags 后台管理-密码重置
-// @Produce json
-// @Param token query string true "重置令牌"
-// @Success 200 {object} map[string]interface{} "令牌有效，返回用户信息"
-// @Failure 400 {object} map[string]interface{} "令牌无效、已使用或已过期"
-// @Router /admin/password/verify-token [get]
-func (h *PasswordResetHandler) VerifyResetToken(c *gin.Context) {
-	token := c.Query("token")
-	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "缺少令牌"})
-		return
-	}
-
-	var passwordReset models.PasswordReset
-	if err := database.DB.Where("token = ?", token).First(&passwordReset).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的令牌"})
-		return
-	}
-
-	if !passwordReset.IsValid() {
-		message := "令牌已失效"
-		if passwordReset.Used {
-			message = "该令牌已被使用"
-		} else if passwordReset.IsExpired() {
-			message = "令牌已过期，请重新申请"
-		}
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": message})
-		return
-	}
-
-	// 获取用户信息
-	var user models.User
-	database.DB.First(&user, passwordReset.UserID)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data": gin.H{
-			"email":    passwordReset.Email,
-			"username": user.Username,
-		},
+		"message": "验证码已发送，请查收邮件",
 	})
 }
 
 // ResetPassword 重置密码
 // @Summary 重置密码
-// @Description 使用有效的重置令牌设置新密码
+// @Description 使用邮箱收到的验证码设置新密码
 // @Tags 后台管理-密码重置
 // @Accept json
 // @Produce json
 // @Param request body ResetPasswordRequest true "重置密码信息"
 // @Success 200 {object} map[string]interface{} "密码重置成功"
-// @Failure 400 {object} map[string]interface{} "参数错误或令牌无效"
+// @Failure 400 {object} map[string]interface{} "参数错误或验证码无效"
 // @Router /admin/password/reset [post]
 func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
@@ -187,16 +141,20 @@ func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	// 查找令牌
+	// 查找验证码
 	var passwordReset models.PasswordReset
-	if err := database.DB.Where("token = ?", req.Token).First(&passwordReset).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的令牌"})
+	if err := database.DB.Where("email = ? AND token = ?", req.Email, req.Code).First(&passwordReset).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码错误"})
 		return
 	}
 
-	// 验证令牌
+	// 验证验证码
 	if !passwordReset.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "令牌已过期或已使用"})
+		if passwordReset.Used {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码已被使用"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码已过期，请重新获取"})
+		}
 		return
 	}
 
@@ -306,36 +264,33 @@ func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
 		return
 	}
 
-	// 使旧令牌失效
+	// 使旧验证码失效
 	database.DB.Model(&models.PasswordReset{}).
 		Where("user_id = ? AND used = ?", user.ID, false).
 		Update("used", true)
 
-	// 生成新令牌
-	token, err := models.GenerateToken()
+	// 生成6位数字验证码
+	code, err := models.GenerateVerificationCode()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成令牌失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成验证码失败"})
 		return
 	}
 
-	// 保存令牌
+	// 保存验证码
 	passwordReset := models.PasswordReset{
 		UserID:    user.ID,
-		Token:     token,
+		Token:     code,
 		Email:     user.Email,
-		ExpiresAt: time.Now().Add(30 * time.Minute),
+		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
 
 	if err := database.DB.Create(&passwordReset).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建重置令牌失败"})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建重置验证码失败"})
 		return
 	}
 
-	// 生成重置链接
-	resetLink := h.cfg.Server.BaseURL + "/#/reset-password?token=" + token
-
-	// 发送邮件
-	if err := h.emailService.SendPasswordResetEmail(user.Email, user.Username, resetLink); err != nil {
+	// 发送验证码邮件
+	if err := h.emailService.SendAppPasswordResetEmail(user.Email, user.Username, code); err != nil {
 		database.DB.Delete(&passwordReset)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -346,8 +301,99 @@ func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "密码重置邮件已发送至 " + user.Email,
+		"message": "密码重置验证码已发送至 " + user.Email + "，请提示用户到忘记密码页面输入验证码完成重置",
 	})
+}
+
+// AdminSendBindEmailCodeRequest 管理员发送绑定邮箱验证码请求
+type AdminSendBindEmailCodeRequest struct {
+	UserID uint   `json:"user_id" binding:"required"`
+	Email  string `json:"email" binding:"required,email"`
+}
+
+// AdminSendBindEmailCode 管理员为指定用户发送绑定邮箱验证码
+// @Summary 发送绑定邮箱验证码
+// @Description 管理员为用户绑定邮箱时，需先向目标邮箱发送验证码以验证邮箱可用性
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param request body AdminSendBindEmailCodeRequest true "用户ID和邮箱"
+// @Success 200 {object} map[string]interface{} "发送成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或邮箱已被占用"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Failure 500 {object} map[string]interface{} "邮件发送失败"
+// @Router /admin/users/email/send-code [post]
+func (h *PasswordResetHandler) AdminSendBindEmailCode(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	var req AdminSendBindEmailCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请输入有效的邮箱地址"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, req.UserID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	// 检查邮箱是否已被其他用户使用
+	var other models.User
+	if err := database.DB.Where("email = ? AND id != ?", req.Email, req.UserID).First(&other).Error; err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "该邮箱已被其他用户绑定"})
+		return
+	}
+
+	// 检查是否有未使用的有效验证码（防止频繁发送）
+	const vtype = "admin_bind"
+	var existingCode models.EmailVerification
+	if err := database.DB.Where("email = ? AND type = ? AND used = ? AND expires_at > ?",
+		req.Email, vtype, false, time.Now()).First(&existingCode).Error; err == nil {
+		if time.Since(existingCode.CreatedAt) < time.Minute {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"message": "请求过于频繁，请稍后再试",
+			})
+			return
+		}
+		database.DB.Model(&existingCode).Update("used", true)
+	}
+
+	code, err := models.GenerateVerificationCode()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "生成验证码失败"})
+		return
+	}
+
+	verification := models.EmailVerification{
+		Email:     req.Email,
+		Code:      code,
+		Type:      vtype,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+	if err := database.DB.Create(&verification).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "保存验证码失败"})
+		return
+	}
+
+	if err := h.emailService.SendVerificationEmail(req.Email, code, "admin_bind"); err != nil {
+		database.DB.Delete(&verification)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "邮件发送失败，请检查邮件配置"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "验证码已发送，请查收邮件"})
 }
 
 // GetEmailConfig 获取邮件配置状态

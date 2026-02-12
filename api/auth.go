@@ -35,9 +35,9 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"omitempty,email" example:"test@example.com"`
 }
 
-// LoginRequest 登录请求
+// LoginRequest 登录请求（支持用户名或邮箱）
 type LoginRequest struct {
-	Username string `json:"username" binding:"required" example:"testuser"`
+	Username string `json:"username" binding:"required" example:"testuser"` // 可为用户名或邮箱
 	Password string `json:"password" binding:"required" example:"password123"`
 }
 
@@ -113,9 +113,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 查找用户
+	// 查找用户（支持用户名或邮箱）
 	var user models.User
-	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	if err := database.DB.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
 		Unauthorized(c, "用户名或密码错误")
 		return
 	}

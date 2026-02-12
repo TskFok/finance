@@ -47,9 +47,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		admin.GET("/feishu/config", feishuAuthHandler.GetFeishuConfig)
 		admin.GET("/feishu/callback", feishuAuthHandler.FeishuCallback)
 
-		// 密码重置（无需登录）
+		// 密码重置（无需登录，验证码流程）
 		admin.POST("/password/request-reset", passwordResetHandler.RequestPasswordReset)
-		admin.GET("/password/verify-token", passwordResetHandler.VerifyResetToken)
 		admin.POST("/password/reset", passwordResetHandler.ResetPassword)
 
 		// 需要 Cookie 认证的后台接口
@@ -76,7 +75,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.PUT("/income-categories/:id", incomeCategoryHandler.Update)
 			adminAuth.DELETE("/income-categories/:id", incomeCategoryHandler.Delete)
 			adminAuth.GET("/users", adminHandler.GetAllUsers)
+			adminAuth.POST("/users/email/send-code", passwordResetHandler.AdminSendBindEmailCode)
 			adminAuth.PUT("/users/:id/password", adminHandler.UpdateUserPassword)
+			adminAuth.PUT("/users/:id/email", adminHandler.UpdateUserEmail)
 			adminAuth.DELETE("/users/:id", adminHandler.DeleteUser)
 			adminAuth.PUT("/users/:id/admin", adminHandler.SetAdmin)
 			adminAuth.PUT("/users/:id/status", adminHandler.UpdateUserStatus)

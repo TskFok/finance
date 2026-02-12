@@ -135,7 +135,7 @@ func (s *EmailService) generateVerificationEmailBody(code, purpose string) strin
 	purposeText := "验证您的邮箱"
 	if purpose == "register" {
 		purposeText = "完成账号注册"
-	} else if purpose == "bind" {
+	} else if purpose == "bind" || purpose == "admin_bind" {
 		purposeText = "绑定您的邮箱"
 	}
 

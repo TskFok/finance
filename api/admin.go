@@ -40,9 +40,9 @@ func getCurrentUser(c *gin.Context) (*models.User, error) {
 	return &user, nil
 }
 
-// AdminLoginRequest 管理员登录请求
+// AdminLoginRequest 管理员登录请求（支持用户名或邮箱）
 type AdminLoginRequest struct {
-	Username string `json:"username" binding:"required"`
+	Username string `json:"username" binding:"required"` // 可为用户名或邮箱
 	Password string `json:"password" binding:"required"`
 }
 
@@ -65,9 +65,9 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 		return
 	}
 
-	// 查找用户
+	// 查找用户（支持用户名或邮箱）
 	var user models.User
-	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	if err := database.DB.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户名或密码错误"})
 		return
 	}
@@ -746,6 +746,116 @@ func (h *AdminHandler) UpdateUserFeishu(c *gin.Context) {
 		"success": true,
 		"message": "飞书绑定更新成功",
 		"data":    user,
+	})
+}
+
+// UpdateUserEmailRequest 更新用户邮箱请求
+type UpdateUserEmailRequest struct {
+	Email string `json:"email"`
+	Code  string `json:"code"` // 绑定邮箱时必填，用于验证邮箱可用性
+}
+
+// UpdateUserEmail 绑定/修改用户邮箱（仅管理员）
+// @Summary 绑定或修改用户邮箱
+// @Description 管理员可为用户设置邮箱。绑定新邮箱必须先发送验证码，验证通过后才能绑定。清除邮箱无需验证。
+// @Tags 后台管理-用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body UpdateUserEmailRequest true "邮箱地址和验证码"
+// @Success 200 {object} map[string]interface{} "更新成功"
+// @Failure 400 {object} map[string]interface{} "参数错误或验证码错误"
+// @Failure 401 {object} map[string]interface{} "未登录"
+// @Failure 403 {object} map[string]interface{} "权限不足"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Router /admin/users/{id}/email [put]
+func (h *AdminHandler) UpdateUserEmail(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	var req UpdateUserEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误"})
+		return
+	}
+
+	email := strings.TrimSpace(req.Email)
+	code := strings.TrimSpace(req.Code)
+
+	if email != "" {
+		// 绑定邮箱：必须提供验证码
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请先发送验证码并输入收到的验证码"})
+			return
+		}
+		// 验证码必须是6位数字
+		if len(code) != 6 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码格式错误"})
+			return
+		}
+		// 验证验证码
+		var verification models.EmailVerification
+		if err := database.DB.Where("email = ? AND code = ? AND type = ?",
+			email, code, "admin_bind").First(&verification).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码错误"})
+			return
+		}
+		if verification.Used {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码已被使用，请重新获取"})
+			return
+		}
+		if verification.IsExpired() {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "验证码已过期，请重新获取"})
+			return
+		}
+		// 检查邮箱是否已被其他用户使用
+		var other models.User
+		if err := database.DB.Where("email = ? AND id != ?", email, userID).First(&other).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "该邮箱已被其他用户绑定"})
+			return
+		}
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	if err := database.DB.Model(&user).Update("email", email).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败"})
+		return
+	}
+
+	// 绑定成功后使验证码失效
+	if email != "" {
+		var verification models.EmailVerification
+		if err := database.DB.Where("email = ? AND code = ? AND type = ?", email, code, "admin_bind").First(&verification).Error; err == nil {
+			database.DB.Model(&verification).Update("used", true)
+		}
+	}
+
+	msg := "邮箱已绑定"
+	if email == "" {
+		msg = "邮箱已清除"
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": msg,
 	})
 }
 
