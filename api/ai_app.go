@@ -78,7 +78,7 @@ func (h *AIAnalysisHandler) DeleteAnalysisHistoryApp(c *gin.Context) {
 		return
 	}
 	if err := database.DB.Delete(&his).Error; err != nil {
-		InternalError(c, "删除失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "删除失败"))
 		return
 	}
 	SuccessWithMessage(c, "删除成功", nil)
@@ -147,7 +147,7 @@ func (h *AIChatHandler) DeleteChatHistoryApp(c *gin.Context) {
 		return
 	}
 	if err := database.DB.Delete(&msg).Error; err != nil {
-		InternalError(c, "删除失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "删除失败"))
 		return
 	}
 	SuccessWithMessage(c, "删除成功", nil)
@@ -165,7 +165,7 @@ func (h *AIChatHandler) DeleteChatHistoryApp(c *gin.Context) {
 func (h *AIModelHandler) ListAIModelsApp(c *gin.Context) {
 	var list []models.AIModel
 	if err := database.DB.Order("sort_order ASC, id ASC").Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	Success(c, list)

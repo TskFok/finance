@@ -3,6 +3,7 @@ package router
 import (
 	"io/fs"
 	"net/http"
+	"time"
 
 	"finance/api"
 	"finance/config"
@@ -42,7 +43,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	feishuAuthHandler := api.NewFeishuAuthHandler(cfg)
 	admin := r.Group("/admin")
 	{
-		admin.POST("/login", adminHandler.AdminLogin)
+		admin.POST("/login", middleware.LoginRateLimit(5, time.Minute), adminHandler.AdminLogin)
 		admin.POST("/logout", adminHandler.AdminLogout)
 		admin.GET("/feishu/config", feishuAuthHandler.GetFeishuConfig)
 		admin.GET("/feishu/callback", feishuAuthHandler.FeishuCallback)
@@ -121,8 +122,10 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		}
 	}
 
-	// Swagger 文档
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger 文档（release 模式下不暴露，避免 API 结构泄露）
+	if cfg.Server.Mode != "release" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// API v1 路由组（供安卓 App 使用）
 	v1 := r.Group("/api/v1")
@@ -132,7 +135,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register)
-			auth.POST("/login", authHandler.Login)
+			auth.POST("/login", middleware.LoginRateLimit(5, time.Minute), authHandler.Login)
 
 			// 邮箱验证相关
 			auth.POST("/send-code", authHandler.SendVerificationCode)

@@ -113,7 +113,7 @@ func (h *PasswordResetHandler) RequestPasswordReset(c *gin.Context) {
 		database.DB.Delete(&passwordReset)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"message": "邮件发送失败: " + err.Error(),
+			"message": SafeErrorMessage(err, "邮件发送失败"),
 		})
 		return
 	}
@@ -194,9 +194,20 @@ func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 // @Param request body AdminResetPasswordRequest true "重置密码信息"
 // @Success 200 {object} map[string]interface{} "密码重置成功"
 // @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "用户不存在"
 // @Router /admin/password/admin-reset [post]
 func (h *PasswordResetHandler) AdminResetPassword(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可执行此操作"})
+		return
+	}
+
 	var req AdminResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误"})
@@ -238,10 +249,21 @@ func (h *PasswordResetHandler) AdminResetPassword(c *gin.Context) {
 // @Param request body map[string]interface{} true "用户ID" example({"user_id": 1})
 // @Success 200 {object} map[string]interface{} "邮件发送成功"
 // @Failure 400 {object} map[string]interface{} "参数错误或用户未设置邮箱"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "用户不存在"
 // @Failure 500 {object} map[string]interface{} "邮件发送失败"
 // @Router /admin/password/send-reset-email [post]
 func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可执行此操作"})
+		return
+	}
+
 	type SendEmailRequest struct {
 		UserID uint `json:"user_id" binding:"required"`
 	}
@@ -294,7 +316,7 @@ func (h *PasswordResetHandler) SendPasswordResetEmail(c *gin.Context) {
 		database.DB.Delete(&passwordReset)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"message": "邮件发送失败: " + err.Error(),
+			"message": SafeErrorMessage(err, "邮件发送失败"),
 		})
 		return
 	}

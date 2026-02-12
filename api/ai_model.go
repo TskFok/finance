@@ -49,7 +49,7 @@ type UpdateAIModelRequest struct {
 func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 	var req CreateAIModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&aiModel).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "创建失败")})
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
 	var models []models.AIModel
 	if err := database.DB.Order("sort_order ASC, id ASC").Find(&models).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "查询失败")})
 		return
 	}
 
@@ -161,7 +161,7 @@ func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 
 	var req UpdateAIModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 	}
 
 	if err := database.DB.Model(&aiModel).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 
@@ -252,7 +252,7 @@ func (h *AIModelHandler) TestAIModel(c *gin.Context) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": "接口不可用: " + err.Error()})
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": SafeErrorMessage(err, "接口不可用")})
 		return
 	}
 	defer resp.Body.Close()
@@ -297,7 +297,7 @@ type ReorderAIModelsRequest struct {
 func (h *AIModelHandler) ReorderAIModels(c *gin.Context) {
 	var req ReorderAIModelsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -339,7 +339,7 @@ func (h *AIModelHandler) DeleteAIModel(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&aiModel).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 

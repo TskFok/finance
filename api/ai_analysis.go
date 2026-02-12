@@ -67,7 +67,7 @@ func writeAnalysisSSE(c *gin.Context, v any) {
 func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	var req AnalysisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *AIAnalysisHandler) AnalyzeExpenses(c *gin.Context) {
 	// 调用AI模型API（流式）
 	// 保存历史记录时使用当前登录用户的ID
 	if err := h.callAIModelStreamAndStore(c, aiModel, currentUser.ID, req.StartTime, req.EndTime, prompt); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "AI分析失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "AI分析失败")})
 		return
 	}
 }
@@ -299,7 +299,7 @@ func (h *AIAnalysisHandler) callAIModelStreamAndStore(c *gin.Context, aiModel mo
 func (h *AIAnalysisHandler) analyzeExpensesScoped(c *gin.Context, userID uint) {
 	var req AnalysisRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -333,7 +333,7 @@ func (h *AIAnalysisHandler) analyzeExpensesScoped(c *gin.Context, userID uint) {
 
 	prompt := h.buildAnalysisPrompt(expenses, req.StartTime, req.EndTime)
 	if err := h.callAIModelStreamAndStore(c, aiModel, userID, req.StartTime, req.EndTime, prompt); err != nil {
-		InternalError(c, "AI分析失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "AI分析失败"))
 		return
 	}
 }
@@ -378,7 +378,7 @@ func (h *AIAnalysisHandler) listAnalysisHistoryScoped(c *gin.Context, userID uin
 	var list []models.AIAnalysisHistory
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	Success(c, gin.H{
@@ -471,7 +471,7 @@ func (h *AIAnalysisHandler) ListAnalysisHistory(c *gin.Context) {
 	var list []models.AIAnalysisHistory
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "查询失败")})
 		return
 	}
 
@@ -511,7 +511,7 @@ func (h *AIAnalysisHandler) DeleteAnalysisHistory(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&his).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 

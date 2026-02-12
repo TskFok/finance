@@ -15,6 +15,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func setAdminCookie(c *gin.Context, name, value string, maxAge int, httpOnly bool) {
+	secure, sameSite := getCookieOptions()
+	c.SetCookieData(&http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		Secure:   secure,
+		HttpOnly: httpOnly,
+		SameSite: sameSite,
+	})
+}
+
 // AdminHandler 后台管理处理器
 type AdminHandler struct{}
 
@@ -85,9 +98,9 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 	}
 
 	// 设置 Cookie
-	c.SetCookie("admin_user_id", fmt.Sprintf("%d", user.ID), 86400, "/", "", false, true)
-	c.SetCookie("admin_username", user.Username, 86400, "/", "", false, false)
-	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, "/", "", false, false)
+	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
+	setAdminCookie(c, "admin_username", user.Username, 86400, false)
+	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -134,11 +147,11 @@ func (h *AdminHandler) GetCurrentUserInfo(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "退出成功"
 // @Router /admin/logout [post]
 func (h *AdminHandler) AdminLogout(c *gin.Context) {
-	c.SetCookie("admin_user_id", "", -1, "/", "", false, true)
-	c.SetCookie("admin_username", "", -1, "/", "", false, false)
-	c.SetCookie("admin_is_admin", "", -1, "/", "", false, false)
-	c.SetCookie("original_admin_id", "", -1, "/", "", false, true)
-	c.SetCookie("original_admin_username", "", -1, "/", "", false, false)
+	setAdminCookie(c, "admin_user_id", "", -1, true)
+	setAdminCookie(c, "admin_username", "", -1, false)
+	setAdminCookie(c, "admin_is_admin", "", -1, false)
+	setAdminCookie(c, "original_admin_id", "", -1, true)
+	setAdminCookie(c, "original_admin_username", "", -1, false)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已退出登录"})
 }
 
@@ -175,7 +188,7 @@ func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
 
 	var req ImpersonateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -199,13 +212,13 @@ func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
 	}
 
 	// 保存原始管理员信息到 Cookie（用于退出模拟时恢复）
-	c.SetCookie("original_admin_id", fmt.Sprintf("%d", currentUser.ID), 86400, "/", "", false, true)
-	c.SetCookie("original_admin_username", currentUser.Username, 86400, "/", "", false, false)
+	setAdminCookie(c, "original_admin_id", fmt.Sprintf("%d", currentUser.ID), 86400, true)
+	setAdminCookie(c, "original_admin_username", currentUser.Username, 86400, false)
 
 	// 设置被模拟用户的 Cookie
-	c.SetCookie("admin_user_id", fmt.Sprintf("%d", targetUser.ID), 86400, "/", "", false, true)
-	c.SetCookie("admin_username", targetUser.Username, 86400, "/", "", false, false)
-	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", targetUser.IsAdmin), 86400, "/", "", false, false)
+	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", targetUser.ID), 86400, true)
+	setAdminCookie(c, "admin_username", targetUser.Username, 86400, false)
+	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", targetUser.IsAdmin), 86400, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -248,13 +261,13 @@ func (h *AdminHandler) ExitImpersonation(c *gin.Context) {
 	}
 
 	// 恢复原始管理员 Cookie
-	c.SetCookie("admin_user_id", fmt.Sprintf("%d", originalAdmin.ID), 86400, "/", "", false, true)
-	c.SetCookie("admin_username", originalAdmin.Username, 86400, "/", "", false, false)
-	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", originalAdmin.IsAdmin), 86400, "/", "", false, false)
+	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", originalAdmin.ID), 86400, true)
+	setAdminCookie(c, "admin_username", originalAdmin.Username, 86400, false)
+	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", originalAdmin.IsAdmin), 86400, false)
 
 	// 清除原始管理员信息 Cookie
-	c.SetCookie("original_admin_id", "", -1, "/", "", false, true)
-	c.SetCookie("original_admin_username", "", -1, "/", "", false, false)
+	setAdminCookie(c, "original_admin_id", "", -1, true)
+	setAdminCookie(c, "original_admin_username", "", -1, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -337,7 +350,8 @@ func (h *AdminHandler) GetAllExpenses(c *gin.Context) {
 		query = query.Where("expenses.category = ?", category)
 	}
 	if username != "" {
-		query = query.Where("users.username LIKE ?", "%"+username+"%")
+		escaped := escapeLikeValue(username)
+		query = query.Where("users.username LIKE ?", "%"+escaped+"%")
 	}
 
 	// 计算总数
@@ -438,7 +452,7 @@ func (h *AdminHandler) UpdateUserPassword(c *gin.Context) {
 
 	var req UpdateUserPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -457,7 +471,7 @@ func (h *AdminHandler) UpdateUserPassword(c *gin.Context) {
 
 	user.Password = string(hashedPassword)
 	if err := database.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 
@@ -513,7 +527,7 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 
@@ -571,7 +585,7 @@ func (h *AdminHandler) SetAdmin(c *gin.Context) {
 
 	var req SetAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -589,7 +603,7 @@ func (h *AdminHandler) SetAdmin(c *gin.Context) {
 
 	user.IsAdmin = req.IsAdmin
 	if err := database.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 
@@ -643,7 +657,7 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 
 	var req UpdateUserStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -661,7 +675,7 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 
 	user.Status = status
 	if err := database.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 
@@ -1179,7 +1193,7 @@ func (h *AdminHandler) CreateExpense(c *gin.Context) {
 
 	var req AdminCreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -1225,7 +1239,7 @@ func (h *AdminHandler) CreateExpense(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&expense).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "创建失败")})
 		return
 	}
 
@@ -1287,7 +1301,7 @@ func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 
 	var req AdminUpdateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -1322,7 +1336,7 @@ func (h *AdminHandler) UpdateExpense(c *gin.Context) {
 	}
 
 	if err := database.DB.Model(&expense).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 
@@ -1375,7 +1389,7 @@ func (h *AdminHandler) DeleteExpense(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&expense).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 

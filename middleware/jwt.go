@@ -89,7 +89,7 @@ func JWTAuth() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
-				"message": "无效的 token: " + err.Error(),
+				"message": config.SafeErrorMessage(err, "无效的 token"),
 			})
 			c.Abort()
 			return

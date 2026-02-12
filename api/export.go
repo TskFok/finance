@@ -64,7 +64,7 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 	if err := database.DB.Where("user_id = ? AND expense_time >= ? AND expense_time <= ?", userID, startTime, endTime).
 		Order("expense_time DESC").
 		Find(&expenses).Error; err != nil {
-		InternalError(c, "查询数据失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询数据失败"))
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *ExportHandler) ExportJSON(c *gin.Context) {
 	if err := database.DB.Where("user_id = ? AND expense_time >= ? AND expense_time <= ?", userID, startTime, endTime).
 		Order("expense_time DESC").
 		Find(&expenses).Error; err != nil {
-		InternalError(c, "查询数据失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询数据失败"))
 		return
 	}
 

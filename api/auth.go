@@ -61,7 +61,7 @@ type LoginResponse struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		InternalError(c, "创建用户失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "创建用户失败"))
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -135,7 +135,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// 生成 token
 	token, err := middleware.GenerateToken(user.ID, user.Username, h.cfg.JWT.ExpireTime)
 	if err != nil {
-		InternalError(c, "生成 token 失败")
+		InternalError(c, SafeErrorMessage(err, "生成 token 失败"))
 		return
 	}
 
@@ -190,7 +190,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -304,7 +304,7 @@ func (h *AuthHandler) SendVerificationCode(c *gin.Context) {
 
 	if err := h.emailService.SendVerificationEmail(req.Email, code, purpose); err != nil {
 		database.DB.Delete(&verification)
-		InternalError(c, "邮件发送失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "邮件发送失败"))
 		return
 	}
 
@@ -376,7 +376,7 @@ type RegisterWithVerificationRequest struct {
 func (h *AuthHandler) RegisterWithVerification(c *gin.Context) {
 	var req RegisterWithVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -426,7 +426,7 @@ func (h *AuthHandler) RegisterWithVerification(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		InternalError(c, "创建用户失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "创建用户失败"))
 		return
 	}
 
@@ -508,7 +508,7 @@ func (h *AuthHandler) AppRequestPasswordReset(c *gin.Context) {
 	// 发送邮件
 	if err := h.emailService.SendAppPasswordResetEmail(req.Email, user.Username, code); err != nil {
 		database.DB.Delete(&passwordReset)
-		InternalError(c, "邮件发送失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "邮件发送失败"))
 		return
 	}
 

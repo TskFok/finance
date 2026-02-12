@@ -41,7 +41,7 @@ type CategoryUpdateRequest struct {
 func (h *CategoryHandler) List(c *gin.Context) {
 	var list []models.ExpenseCategory
 	if err := database.DB.Order("sort ASC, id ASC").Find(&list).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "查询失败")})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": list})
@@ -60,7 +60,7 @@ func (h *CategoryHandler) List(c *gin.Context) {
 func (h *CategoryHandler) Create(c *gin.Context) {
 	var req CategoryCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
@@ -82,7 +82,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 	}
 	cat := models.ExpenseCategory{Name: req.Name, Sort: req.Sort, Color: color}
 	if err := database.DB.Create(&cat).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "创建失败")})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "创建成功", "data": cat})
@@ -115,7 +115,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 	var req CategoryUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 	}
 
 	if err := database.DB.Model(&cat).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 	database.DB.First(&cat, cat.ID)
@@ -178,7 +178,7 @@ func (h *CategoryHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := database.DB.Delete(&cat).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})

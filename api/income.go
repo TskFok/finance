@@ -53,7 +53,7 @@ type IncomeListRequest struct {
 func (h *IncomeHandler) GetIncomeCategories(c *gin.Context) {
 	var list []models.IncomeCategory
 	if err := database.DB.Order("sort ASC, id ASC").Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	Success(c, list)
@@ -75,7 +75,7 @@ func (h *IncomeHandler) Create(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	var req CreateIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 	t, err := time.ParseInLocation("2006-01-02 15:04:05", req.IncomeTime, time.Local)
@@ -85,7 +85,7 @@ func (h *IncomeHandler) Create(c *gin.Context) {
 	}
 	in := models.Income{UserID: userID, Amount: req.Amount, Type: req.Type, IncomeTime: t}
 	if err := database.DB.Create(&in).Error; err != nil {
-		InternalError(c, "创建收入失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "创建收入失败"))
 		return
 	}
 	SuccessWithMessage(c, "创建成功", in)
@@ -109,7 +109,7 @@ func (h *IncomeHandler) List(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	var req IncomeListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 	if req.Page <= 0 {
@@ -143,7 +143,7 @@ func (h *IncomeHandler) List(c *gin.Context) {
 	var list []models.Income
 	offset := (req.Page - 1) * req.PageSize
 	if err := query.Order("income_time DESC").Offset(offset).Limit(req.PageSize).Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	Success(c, PageResponse{Total: total, Page: req.Page, PageSize: req.PageSize, List: list})
@@ -203,7 +203,7 @@ func (h *IncomeHandler) Update(c *gin.Context) {
 	}
 	var req UpdateIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 	updates := map[string]interface{}{}
@@ -222,7 +222,7 @@ func (h *IncomeHandler) Update(c *gin.Context) {
 		updates["income_time"] = t
 	}
 	if err := database.DB.Model(&in).Updates(updates).Error; err != nil {
-		InternalError(c, "更新失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "更新失败"))
 		return
 	}
 	database.DB.First(&in, in.ID)
@@ -253,7 +253,7 @@ func (h *IncomeHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := database.DB.Delete(&in).Error; err != nil {
-		InternalError(c, "删除失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "删除失败"))
 		return
 	}
 	SuccessWithMessage(c, "删除成功", nil)
@@ -401,7 +401,7 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 
 	var req AdminCreateIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -436,7 +436,7 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 	}
 	in := models.Income{UserID: req.UserID, Amount: req.Amount, Type: req.Type, IncomeTime: t}
 	if err := database.DB.Create(&in).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "创建失败")})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "创建成功", "data": in})
@@ -493,7 +493,7 @@ func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 	}
 	var req AdminUpdateIncomeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 	updates := map[string]interface{}{}
@@ -522,7 +522,7 @@ func (h *AdminHandler) UpdateIncome(c *gin.Context) {
 		updates["income_time"] = t
 	}
 	if err := database.DB.Model(&in).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "更新失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
 		return
 	}
 	database.DB.First(&in, in.ID)
@@ -553,7 +553,7 @@ func (h *AdminHandler) DeleteIncome(c *gin.Context) {
 		return
 	}
 	if err := database.DB.Delete(&in).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})

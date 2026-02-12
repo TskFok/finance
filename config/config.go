@@ -140,6 +140,17 @@ func MustLoadConfig(configPath string) *Config {
 	return cfg
 }
 
+// SafeErrorMessage 生产环境下不向客户端暴露内部错误详情
+func SafeErrorMessage(err error, fallback string) string {
+	if err == nil {
+		return fallback
+	}
+	if GlobalConfig != nil && GlobalConfig.Server.Mode == "release" {
+		return fallback
+	}
+	return err.Error()
+}
+
 // GetConfig 获取全局配置
 func GetConfig() *Config {
 	if GlobalConfig == nil {

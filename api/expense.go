@@ -63,7 +63,7 @@ func (h *ExpenseHandler) Create(c *gin.Context) {
 
 	var req CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *ExpenseHandler) Create(c *gin.Context) {
 	}
 
 	if err := database.DB.Create(&expense).Error; err != nil {
-		InternalError(c, "创建消费记录失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "创建消费记录失败"))
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *ExpenseHandler) List(c *gin.Context) {
 
 	var req ExpenseListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -168,7 +168,7 @@ func (h *ExpenseHandler) List(c *gin.Context) {
 	var expenses []models.Expense
 	offset := (req.Page - 1) * req.PageSize
 	if err := query.Order("expense_time DESC").Offset(offset).Limit(req.PageSize).Find(&expenses).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 
@@ -239,7 +239,7 @@ func (h *ExpenseHandler) Update(c *gin.Context) {
 
 	var req UpdateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -274,7 +274,7 @@ func (h *ExpenseHandler) Update(c *gin.Context) {
 	}
 
 	if err := database.DB.Model(&expense).Updates(updates).Error; err != nil {
-		InternalError(c, "更新失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "更新失败"))
 		return
 	}
 
@@ -310,7 +310,7 @@ func (h *ExpenseHandler) Delete(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&expense).Error; err != nil {
-		InternalError(c, "删除失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "删除失败"))
 		return
 	}
 
@@ -358,7 +358,7 @@ func (h *ExpenseHandler) Delete(c *gin.Context) {
 func (h *ExpenseHandler) GetCategories(c *gin.Context) {
 	var list []models.ExpenseCategory
 	if err := database.DB.Order("sort ASC, id ASC").Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	// 返回完整的类别对象数组，包含ID、名称、排序等信息

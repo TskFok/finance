@@ -171,7 +171,7 @@ func (h *FeishuAuthHandler) handleFeishuLogin(c *gin.Context, code, redirectURI 
 	// 兑换 token
 	tokenData, err := service.ExchangeToken(feishu.AppID, feishu.AppSecret, code, redirectURI)
 	if err != nil {
-		redirectToLogin(c, "飞书授权失败: "+err.Error())
+		redirectToLogin(c, SafeErrorMessage(err, "飞书授权失败"))
 		return
 	}
 
@@ -259,7 +259,7 @@ func (h *FeishuAuthHandler) handleFeishuBind(c *gin.Context, code, redirectURI s
 
 	tokenData, err := service.ExchangeToken(feishu.AppID, feishu.AppSecret, code, redirectURI)
 	if err != nil {
-		redirectToLogin(c, "飞书授权失败: "+err.Error())
+		redirectToLogin(c, SafeErrorMessage(err, "飞书授权失败"))
 		return
 	}
 
@@ -295,9 +295,9 @@ func redirectToLogin(c *gin.Context, errMsg string) {
 }
 
 func setAdminCookies(c *gin.Context, user *models.User) {
-	c.SetCookie("admin_user_id", fmt.Sprintf("%d", user.ID), 86400, "/", "", false, true)
-	c.SetCookie("admin_username", user.Username, 86400, "/", "", false, false)
-	c.SetCookie("admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, "/", "", false, false)
+	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
+	setAdminCookie(c, "admin_username", user.Username, 86400, false)
+	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
 }
 
 func generateRandomPassword() string {

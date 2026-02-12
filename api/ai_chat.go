@@ -58,7 +58,7 @@ type AIChatRequest struct {
 func (h *AIChatHandler) ChatStream(c *gin.Context) {
 	var req AIChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *AIChatHandler) ChatStream(c *gin.Context) {
 	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		writeSSEJSON(c, sseChatFrame{Type: "error", Content: "请求AI服务失败: " + err.Error()})
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: SafeErrorMessage(err, "请求AI服务失败")})
 		writeSSEJSON(c, sseChatFrame{Type: "done"})
 		return
 	}
@@ -219,7 +219,7 @@ func (h *AIChatHandler) ChatStream(c *gin.Context) {
 func (h *AIChatHandler) chatStreamScoped(c *gin.Context, userID uint) {
 	var req AIChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		BadRequest(c, "参数错误: "+err.Error())
+		BadRequest(c, SafeErrorMessage(err, "参数错误"))
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *AIChatHandler) chatStreamScoped(c *gin.Context, userID uint) {
 	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		writeSSEJSON(c, sseChatFrame{Type: "error", Content: "请求AI服务失败: " + err.Error()})
+		writeSSEJSON(c, sseChatFrame{Type: "error", Content: SafeErrorMessage(err, "请求AI服务失败")})
 		writeSSEJSON(c, sseChatFrame{Type: "done"})
 		return
 	}
@@ -391,7 +391,7 @@ func (h *AIChatHandler) chatHistoryScoped(c *gin.Context, userID uint, requireUs
 	var list []models.AIChatMessage
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
-		InternalError(c, "查询失败: "+err.Error())
+		InternalError(c, SafeErrorMessage(err, "查询失败"))
 		return
 	}
 	Success(c, gin.H{
@@ -463,7 +463,7 @@ func (h *AIChatHandler) ChatHistory(c *gin.Context) {
 	var list []models.AIChatMessage
 	offset := (page - 1) * pageSize
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "查询失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "查询失败")})
 		return
 	}
 
@@ -503,7 +503,7 @@ func (h *AIChatHandler) DeleteChatHistory(c *gin.Context) {
 	}
 
 	if err := database.DB.Delete(&msg).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "删除失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "删除失败")})
 		return
 	}
 
