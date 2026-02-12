@@ -295,9 +295,9 @@ func redirectToLogin(c *gin.Context, errMsg string) {
 }
 
 func setAdminCookies(c *gin.Context, user *models.User) {
-	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
+	setSignedAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
 	setAdminCookie(c, "admin_username", user.Username, 86400, false)
-	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
+	setSignedAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
 }
 
 func generateRandomPassword() string {

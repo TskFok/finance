@@ -28,6 +28,11 @@ func setAdminCookie(c *gin.Context, name, value string, maxAge int, httpOnly boo
 	})
 }
 
+// setSignedAdminCookie 设置签名后的敏感 Cookie，防止客户端篡改
+func setSignedAdminCookie(c *gin.Context, name, value string, maxAge int, httpOnly bool) {
+	setAdminCookie(c, name, signCookieValue(value), maxAge, httpOnly)
+}
+
 // AdminHandler 后台管理处理器
 type AdminHandler struct{}
 
@@ -36,18 +41,14 @@ func NewAdminHandler() *AdminHandler {
 	return &AdminHandler{}
 }
 
-// getCurrentUser 获取当前登录用户信息
+// getCurrentUser 获取当前登录用户信息（校验 Cookie 签名，防止篡改越权）
 func getCurrentUser(c *gin.Context) (*models.User, error) {
-	userIDStr, err := c.Cookie("admin_user_id")
-	if err != nil {
-		return nil, err
-	}
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	userID, err := GetVerifiedAdminUserID(c)
 	if err != nil {
 		return nil, err
 	}
 	var user models.User
-	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+	if err := database.DB.First(&user, userID).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
@@ -97,10 +98,10 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 		return
 	}
 
-	// 设置 Cookie
-	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
+	// 设置 Cookie（admin_user_id、admin_is_admin 使用签名防篡改）
+	setSignedAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", user.ID), 86400, true)
 	setAdminCookie(c, "admin_username", user.Username, 86400, false)
-	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
+	setSignedAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", user.IsAdmin), 86400, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -211,14 +212,14 @@ func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
 		return
 	}
 
-	// 保存原始管理员信息到 Cookie（用于退出模拟时恢复）
-	setAdminCookie(c, "original_admin_id", fmt.Sprintf("%d", currentUser.ID), 86400, true)
+	// 保存原始管理员信息到 Cookie（用于退出模拟时恢复，使用签名防篡改）
+	setSignedAdminCookie(c, "original_admin_id", fmt.Sprintf("%d", currentUser.ID), 86400, true)
 	setAdminCookie(c, "original_admin_username", currentUser.Username, 86400, false)
 
-	// 设置被模拟用户的 Cookie
-	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", targetUser.ID), 86400, true)
+	// 设置被模拟用户的 Cookie（admin_user_id、admin_is_admin 使用签名防篡改）
+	setSignedAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", targetUser.ID), 86400, true)
 	setAdminCookie(c, "admin_username", targetUser.Username, 86400, false)
-	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", targetUser.IsAdmin), 86400, false)
+	setSignedAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", targetUser.IsAdmin), 86400, false)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -240,16 +241,10 @@ func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
 // @Failure 401 {object} map[string]interface{} "未登录或未在模拟状态"
 // @Router /admin/users/exit-impersonation [post]
 func (h *AdminHandler) ExitImpersonation(c *gin.Context) {
-	// 获取原始管理员信息
-	originalAdminIDStr, err := c.Cookie("original_admin_id")
+	// 获取并验证原始管理员信息（校验签名防止篡改）
+	originalAdminID, err := GetVerifiedOriginalAdminID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "未在模拟登录状态"})
-		return
-	}
-
-	originalAdminID, err := strconv.ParseUint(originalAdminIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的原始管理员ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "未在模拟登录状态或会话无效"})
 		return
 	}
 
@@ -260,10 +255,10 @@ func (h *AdminHandler) ExitImpersonation(c *gin.Context) {
 		return
 	}
 
-	// 恢复原始管理员 Cookie
-	setAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", originalAdmin.ID), 86400, true)
+	// 恢复原始管理员 Cookie（admin_user_id、admin_is_admin 使用签名防篡改）
+	setSignedAdminCookie(c, "admin_user_id", fmt.Sprintf("%d", originalAdmin.ID), 86400, true)
 	setAdminCookie(c, "admin_username", originalAdmin.Username, 86400, false)
-	setAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", originalAdmin.IsAdmin), 86400, false)
+	setSignedAdminCookie(c, "admin_is_admin", fmt.Sprintf("%t", originalAdmin.IsAdmin), 86400, false)
 
 	// 清除原始管理员信息 Cookie
 	setAdminCookie(c, "original_admin_id", "", -1, true)

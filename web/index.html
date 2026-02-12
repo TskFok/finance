@@ -1682,89 +1682,71 @@
 
         function checkAuth() {
             const username = getCookie('admin_username');
-            const isAdminStr = getCookie('admin_is_admin');
             if (username) {
                 currentUsername = username;
-                isAdmin = isAdminStr === 'true';
-                
+                // 不使用 cookie 中的 admin_is_admin，改为从服务端 /admin/current-user 获取真实权限，防止篡改
+                isAdmin = false;
+
                 // 检查是否在模拟登录状态（通过 sessionStorage）
                 const impersonatedUserId = sessionStorage.getItem('impersonated_user_id');
                 const isImpersonating = impersonatedUserId && impersonatedUserId !== '';
-                
+
                 if (isImpersonating) {
-                    // 模拟登录时，优先从 sessionStorage 读取（模拟登录时保存的）
                     currentUserId = parseInt(impersonatedUserId);
                     console.log('模拟登录：从 sessionStorage 读取用户ID:', currentUserId);
-                    // 同时从服务器验证一次，确保准确性
-                    loadCurrentUserIdFromServer();
                 } else {
-                    // 正常登录时，从 localStorage 读取用户ID
                     const savedUserId = localStorage.getItem('admin_user_id');
-                    if (savedUserId) {
-                        currentUserId = parseInt(savedUserId);
-                    } else {
-                        // 如果没有保存的用户ID，尝试从用户列表接口获取
-                        loadCurrentUserIdFromServer();
-                    }
+                    if (savedUserId) currentUserId = parseInt(savedUserId);
                 }
-                
+
                 showApp();
                 loadEmailConfig();
-                updateUIByPermission();
-                restoreLastPageAfterAuth();
+                // 必须从服务端获取 is_admin 和 userId，再更新 UI 和恢复页面，防止 cookie 篡改越权
+                loadCurrentUserAndUpdateUI();
             }
         }
         
-        // 从服务器获取当前用户ID（通过当前用户信息接口）
-        async function loadCurrentUserIdFromServer() {
+        // 从服务器获取当前用户信息（含 is_admin），并更新 UI。不信任 cookie，防止篡改越权
+        async function loadCurrentUserAndUpdateUI() {
             try {
-                console.log('loadCurrentUserIdFromServer - 开始获取，currentUsername:', currentUsername);
-                // 优先使用专门的当前用户信息接口
                 const res = await fetch('/admin/current-user');
                 const data = await res.json();
                 if (data.success && data.data) {
-                    const oldUserId = currentUserId;
                     currentUserId = data.data.id;
-                    console.log('从当前用户接口获取用户ID:', currentUserId, '用户名:', data.data.username, '旧ID:', oldUserId);
-                    // 检查是否在模拟登录状态（通过检查用户名是否匹配）
-                    const isImpersonating = data.data.username !== currentUsername || (currentUsername && data.data.username !== currentUsername);
-                    // 只有在非模拟登录状态下才保存到 localStorage
+                    isAdmin = data.data.is_admin === true;  // 从服务端获取真实权限
+                    const isImpersonating = data.data.username !== currentUsername;
                     if (!isImpersonating && data.data.username === currentUsername) {
                         localStorage.setItem('admin_user_id', currentUserId.toString());
-                    } else {
-                        console.log('模拟登录状态或用户名不匹配：不保存到 localStorage');
                     }
+                } else if (res.status === 401) {
+                    showLogin();
+                    return;
                 } else {
-                    // 降级方案：从用户列表接口查找
-                    console.log('当前用户接口失败，尝试从用户列表查找');
+                    // 降级：从用户列表查找（仅能获取 userId，is_admin 需从返回的用户里取）
                     const res2 = await fetch('/admin/users');
                     const data2 = await res2.json();
                     if (data2.success && data2.data) {
-                        console.log('loadCurrentUserIdFromServer - 用户列表:', data2.data.map(u => ({id: u.id, username: u.username})));
                         const user = data2.data.find(u => u.username === currentUsername);
                         if (user) {
-                            const oldUserId = currentUserId;
                             currentUserId = user.id;
-                            console.log('从用户列表获取用户ID:', currentUserId, '用户名:', currentUsername, '旧ID:', oldUserId);
-                            // 检查是否在模拟登录状态
+                            isAdmin = user.is_admin === true;
                             const originalAdminId = getCookie('original_admin_id');
-                            const isImpersonating = originalAdminId && originalAdminId !== '';
-                            // 只有在非模拟登录状态下才保存到 localStorage
-                            if (!isImpersonating) {
+                            if (!originalAdminId || originalAdminId === '') {
                                 localStorage.setItem('admin_user_id', currentUserId.toString());
-                            } else {
-                                console.log('模拟登录状态：不保存到 localStorage');
                             }
-                        } else {
-                            console.error('未找到用户:', currentUsername, '可用用户:', data2.data.map(u => u.username));
                         }
-                    } else {
-                        console.error('获取用户列表失败:', data2);
                     }
                 }
             } catch (e) {
-                console.error('获取当前用户ID失败:', e);
+                console.error('获取当前用户失败:', e);
             }
+            updateUIByPermission();
+            restoreLastPageAfterAuth();
+        }
+
+        // 兼容旧调用，内部委托给 loadCurrentUserAndUpdateUI
+        async function loadCurrentUserIdFromServer() {
+            await loadCurrentUserAndUpdateUI();
         }
 
         function showApp() {

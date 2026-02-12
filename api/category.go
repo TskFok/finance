@@ -49,15 +49,26 @@ func (h *CategoryHandler) List(c *gin.Context) {
 
 // Create 创建类别
 // @Summary 创建消费类别
-// @Description 创建新的消费类别，支持设置名称、排序和颜色
+// @Description 创建新的消费类别，支持设置名称、排序和颜色（仅管理员）
 // @Tags 后台管理-消费类别
 // @Accept json
 // @Produce json
 // @Param request body CategoryCreateRequest true "类别信息"
 // @Success 200 {object} map[string]interface{} "创建成功"
 // @Failure 400 {object} map[string]interface{} "参数错误或类别名称已存在"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Router /admin/categories [post]
 func (h *CategoryHandler) Create(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可创建消费类别"})
+		return
+	}
+
 	var req CategoryCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
@@ -90,7 +101,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 
 // Update 更新类别
 // @Summary 更新消费类别
-// @Description 更新指定的消费类别信息
+// @Description 更新指定的消费类别信息（仅管理员）
 // @Tags 后台管理-消费类别
 // @Accept json
 // @Produce json
@@ -98,9 +109,20 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 // @Param request body CategoryUpdateRequest true "更新的类别信息"
 // @Success 200 {object} map[string]interface{} "更新成功"
 // @Failure 400 {object} map[string]interface{} "参数错误或类别名称已存在"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "类别不存在"
 // @Router /admin/categories/{id} [put]
 func (h *CategoryHandler) Update(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可更新消费类别"})
+		return
+	}
+
 	id64, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})
@@ -158,15 +180,26 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 
 // Delete 软删除类别
 // @Summary 删除消费类别
-// @Description 软删除指定的消费类别
+// @Description 软删除指定的消费类别（仅管理员）
 // @Tags 后台管理-消费类别
 // @Produce json
 // @Param id path int true "类别ID"
 // @Success 200 {object} map[string]interface{} "删除成功"
 // @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "类别不存在"
 // @Router /admin/categories/{id} [delete]
 func (h *CategoryHandler) Delete(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可删除消费类别"})
+		return
+	}
+
 	id64, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的ID"})

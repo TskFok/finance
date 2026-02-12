@@ -38,15 +38,26 @@ type UpdateAIModelRequest struct {
 
 // CreateAIModel 创建AI模型配置
 // @Summary 创建AI模型
-// @Description 创建新的AI模型配置，包括名称、API地址和密钥
+// @Description 创建新的AI模型配置，包括名称、API地址和密钥（仅管理员）
 // @Tags 后台管理-AI模型
 // @Accept json
 // @Produce json
 // @Param request body CreateAIModelRequest true "AI模型信息"
 // @Success 200 {object} map[string]interface{} "创建成功"
 // @Failure 400 {object} map[string]interface{} "参数错误或模型名称已存在"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Router /admin/ai-models [post]
 func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可管理AI模型"})
+		return
+	}
+
 	var req CreateAIModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
@@ -85,12 +96,23 @@ func (h *AIModelHandler) CreateAIModel(c *gin.Context) {
 
 // GetAllAIModels 获取所有AI模型列表
 // @Summary 获取AI模型列表
-// @Description 获取系统中所有AI模型配置列表（不包含APIKey）
+// @Description 获取系统中所有AI模型配置列表（不包含APIKey），仅管理员
 // @Tags 后台管理-AI模型
 // @Produce json
 // @Success 200 {object} map[string]interface{} "获取成功，返回模型列表"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Router /admin/ai-models [get]
 func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可查看AI模型配置"})
+		return
+	}
+
 	var models []models.AIModel
 	if err := database.DB.Order("sort_order ASC, id ASC").Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "查询失败")})
@@ -105,15 +127,26 @@ func (h *AIModelHandler) GetAllAIModels(c *gin.Context) {
 
 // GetAIModel 获取单个AI模型
 // @Summary 获取单个AI模型
-// @Description 根据ID获取AI模型配置详情（不包含APIKey）
+// @Description 根据ID获取AI模型配置详情（不包含APIKey），仅管理员
 // @Tags 后台管理-AI模型
 // @Produce json
 // @Param id path int true "AI模型ID"
 // @Success 200 {object} map[string]interface{} "获取成功"
 // @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "模型不存在"
 // @Router /admin/ai-models/{id} [get]
 func (h *AIModelHandler) GetAIModel(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可查看AI模型配置"})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -135,7 +168,7 @@ func (h *AIModelHandler) GetAIModel(c *gin.Context) {
 
 // UpdateAIModel 更新AI模型配置
 // @Summary 更新AI模型
-// @Description 更新指定的AI模型配置信息
+// @Description 更新指定的AI模型配置信息（仅管理员）
 // @Tags 后台管理-AI模型
 // @Accept json
 // @Produce json
@@ -143,9 +176,20 @@ func (h *AIModelHandler) GetAIModel(c *gin.Context) {
 // @Param request body UpdateAIModelRequest true "更新的模型信息"
 // @Success 200 {object} map[string]interface{} "更新成功"
 // @Failure 400 {object} map[string]interface{} "参数错误或模型名称已存在"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "模型不存在"
 // @Router /admin/ai-models/{id} [put]
 func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可管理AI模型"})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -203,16 +247,27 @@ func (h *AIModelHandler) UpdateAIModel(c *gin.Context) {
 
 // TestAIModel 检测AI接口可用性
 // @Summary 检测AI接口可用性
-// @Description 向AI模型发送轻量测试请求，检测接口是否可用
+// @Description 向AI模型发送轻量测试请求，检测接口是否可用（仅管理员）
 // @Tags 后台管理-AI模型
 // @Produce json
 // @Param id path int true "AI模型ID"
 // @Success 200 {object} map[string]interface{} "检测成功，接口可用"
 // @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "模型不存在"
 // @Failure 502 {object} map[string]interface{} "接口不可用"
 // @Router /admin/ai-models/{id}/test [post]
 func (h *AIModelHandler) TestAIModel(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可管理AI模型"})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -286,15 +341,26 @@ type ReorderAIModelsRequest struct {
 
 // ReorderAIModels 拖拽排序AI模型
 // @Summary 排序AI模型
-// @Description 根据传入的模型ID顺序更新排序，用于前端拖拽排序后保存
+// @Description 根据传入的模型ID顺序更新排序，用于前端拖拽排序后保存（仅管理员）
 // @Tags 后台管理-AI模型
 // @Accept json
 // @Produce json
 // @Param request body ReorderAIModelsRequest true "模型ID顺序"
 // @Success 200 {object} map[string]interface{} "排序成功"
 // @Failure 400 {object} map[string]interface{} "参数错误"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Router /admin/ai-models/reorder [put]
 func (h *AIModelHandler) ReorderAIModels(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可管理AI模型"})
+		return
+	}
+
 	var req ReorderAIModelsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
@@ -316,15 +382,26 @@ func (h *AIModelHandler) ReorderAIModels(c *gin.Context) {
 
 // DeleteAIModel 删除AI模型配置
 // @Summary 删除AI模型
-// @Description 删除指定的AI模型配置（软删除）
+// @Description 删除指定的AI模型配置（软删除），仅管理员
 // @Tags 后台管理-AI模型
 // @Produce json
 // @Param id path int true "AI模型ID"
 // @Success 200 {object} map[string]interface{} "删除成功"
 // @Failure 400 {object} map[string]interface{} "无效的ID"
+// @Failure 403 {object} map[string]interface{} "权限不足"
 // @Failure 404 {object} map[string]interface{} "模型不存在"
 // @Router /admin/ai-models/{id} [delete]
 func (h *AIModelHandler) DeleteAIModel(c *gin.Context) {
+	user, err := getCurrentUser(c)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !user.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足，仅管理员可管理AI模型"})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
