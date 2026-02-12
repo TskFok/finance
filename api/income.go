@@ -382,19 +382,9 @@ func (h *AdminHandler) GetAllIncomes(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{} "用户不存在"
 // @Router /admin/incomes [post]
 func (h *AdminHandler) CreateIncome(c *gin.Context) {
-	// 获取当前用户
-	userIDStr, err := c.Cookie("admin_user_id")
+	// 获取当前用户（含 Cookie 签名验证）
+	currentUser, err := getCurrentUser(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	var currentUser models.User
-	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
 		return
 	}
@@ -457,19 +447,9 @@ func (h *AdminHandler) CreateIncome(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{} "记录不存在"
 // @Router /admin/incomes/{id} [put]
 func (h *AdminHandler) UpdateIncome(c *gin.Context) {
-	// 获取当前用户
-	userIDStr, err := c.Cookie("admin_user_id")
+	// 获取当前用户（含 Cookie 签名验证）
+	currentUser, err := getCurrentUser(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
-		return
-	}
-	var currentUser models.User
-	if err := database.DB.First(&currentUser, uint(userID)).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
 		return
 	}

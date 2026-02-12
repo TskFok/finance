@@ -238,11 +238,11 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// AdminAuthMiddleware 后台管理 Cookie 认证中间件
+// AdminAuthMiddleware 后台管理 Cookie 认证中间件（验证签名，防止 Cookie 篡改越权）
 func AdminAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, err := c.Cookie("admin_user_id")
-		if err != nil || userID == "" {
+		_, err := api.GetVerifiedAdminUserID(c)
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": "请先登录",
