@@ -234,7 +234,7 @@ func (h *FeishuAuthHandler) handleFeishuLogin(c *gin.Context, code, redirectURI 
 		Username:      username,
 		Password:      string(hashedPassword),
 		Email:         userInfo.Email,
-		Status:        models.UserStatusActive,
+		Status:        models.UserStatusLocked, // 飞书自动创建的账号默认锁定，需管理员解锁后才能登录
 		FeishuOpenID:  &openID,
 		FeishuUnionID: userInfo.UnionID,
 	}
@@ -243,8 +243,8 @@ func (h *FeishuAuthHandler) handleFeishuLogin(c *gin.Context, code, redirectURI 
 		return
 	}
 
-	setAdminCookies(c, &user)
-	c.Redirect(http.StatusFound, "/")
+	// 飞书自动创建的账号默认锁定，不直接登录，需管理员解锁后再用飞书扫码登录
+	redirectToLogin(c, "账号已创建，请联系管理员解锁后再登录")
 }
 
 // handleFeishuBind 处理飞书绑定（当前已登录用户绑定飞书 open_id）
