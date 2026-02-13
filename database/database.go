@@ -29,6 +29,7 @@ func Init(cfg *config.Config) error {
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true, // 禁止迁移时创建外键
 	})
 	if err != nil {
 		return fmt.Errorf("连接数据库失败: %w", err)
