@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"finance/adminauth"
 	"finance/database"
 	"finance/models"
 
@@ -30,7 +31,7 @@ func setAdminCookie(c *gin.Context, name, value string, maxAge int, httpOnly boo
 
 // setSignedAdminCookie 设置签名后的敏感 Cookie，防止客户端篡改
 func setSignedAdminCookie(c *gin.Context, name, value string, maxAge int, httpOnly bool) {
-	setAdminCookie(c, name, signCookieValue(value), maxAge, httpOnly)
+	setAdminCookie(c, name, adminauth.SignCookieValue(value), maxAge, httpOnly)
 }
 
 // AdminHandler 后台管理处理器
@@ -43,7 +44,7 @@ func NewAdminHandler() *AdminHandler {
 
 // getCurrentUser 获取当前登录用户信息（校验 Cookie 签名，防止篡改越权）
 func getCurrentUser(c *gin.Context) (*models.User, error) {
-	userID, err := GetVerifiedAdminUserID(c)
+	userID, err := adminauth.GetVerifiedAdminUserID(c)
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +115,18 @@ func (h *AdminHandler) AdminLogin(c *gin.Context) {
 	})
 }
 
-// GetCurrentUserInfo 获取当前登录用户信息
+// UserMenuItem 用户可见菜单项（简化结构，供前端侧栏渲染）
+type UserMenuItem struct {
+	ID       uint          `json:"id"`
+	Name     string        `json:"name"`
+	Path     string        `json:"path"`
+	Icon     string        `json:"icon"`
+	Children []UserMenuItem `json:"children,omitempty"`
+}
+
+// GetCurrentUserInfo 获取当前登录用户信息（含角色、菜单树）
 // @Summary 获取当前登录用户信息
-// @Description 获取当前登录用户的详细信息（包括用户ID）
+// @Description 获取当前登录用户的详细信息，包括角色和可见菜单树
 // @Tags 后台管理
 // @Produce json
 // @Success 200 {object} map[string]interface{} "获取成功"
@@ -129,6 +139,15 @@ func (h *AdminHandler) GetCurrentUserInfo(c *gin.Context) {
 		return
 	}
 
+	menus := getUserMenus(user)
+	var role *models.Role
+	if user.RoleID != nil {
+		var r models.Role
+		if database.DB.First(&r, *user.RoleID).Error == nil {
+			role = &r
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
@@ -136,8 +155,55 @@ func (h *AdminHandler) GetCurrentUserInfo(c *gin.Context) {
 			"username": user.Username,
 			"is_admin": user.IsAdmin,
 			"status":   user.Status,
+			"role_id":  user.RoleID,
+			"role":     role,
+			"menus":    menus,
 		},
 	})
+}
+
+// getUserMenus 获取用户可见的菜单树（超管全部，否则按角色）
+func getUserMenus(user *models.User) []UserMenuItem {
+	var menuIDs []uint
+	if user.IsAdmin {
+		database.DB.Model(&models.Menu{}).Pluck("id", &menuIDs)
+	} else if user.RoleID != nil {
+		database.DB.Model(&models.RoleMenu{}).Where("role_id = ?", *user.RoleID).Pluck("menu_id", &menuIDs)
+	} else {
+		// 无角色时使用 viewer 的菜单
+		var viewer models.Role
+		if database.DB.Where("code = ?", "viewer").First(&viewer).Error == nil {
+			database.DB.Model(&models.RoleMenu{}).Where("role_id = ?", viewer.ID).Pluck("menu_id", &menuIDs)
+		}
+	}
+	if len(menuIDs) == 0 {
+		return nil
+	}
+	var menus []models.Menu
+	database.DB.Where("id IN ?", menuIDs).Order("sort_order ASC, id ASC").Find(&menus)
+	return buildUserMenuTree(menus, menuIDs, 0)
+}
+
+func buildUserMenuTree(menus []models.Menu, allowedIDs []uint, parentID uint) []UserMenuItem {
+	allowedSet := make(map[uint]bool)
+	for _, id := range allowedIDs {
+		allowedSet[id] = true
+	}
+	var result []UserMenuItem
+	for _, m := range menus {
+		if m.ParentID != parentID || !allowedSet[m.ID] {
+			continue
+		}
+		item := UserMenuItem{
+			ID:   m.ID,
+			Name: m.Name,
+			Path: m.Path,
+			Icon: m.Icon,
+		}
+		item.Children = buildUserMenuTree(menus, allowedIDs, m.ID)
+		result = append(result, item)
+	}
+	return result
 }
 
 // AdminLogout 管理员退出登录
@@ -242,7 +308,7 @@ func (h *AdminHandler) ImpersonateUser(c *gin.Context) {
 // @Router /admin/users/exit-impersonation [post]
 func (h *AdminHandler) ExitImpersonation(c *gin.Context) {
 	// 获取并验证原始管理员信息（校验签名防止篡改）
-	originalAdminID, err := GetVerifiedOriginalAdminID(c)
+	originalAdminID, err := adminauth.GetVerifiedOriginalAdminID(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "未在模拟登录状态或会话无效"})
 		return
@@ -754,6 +820,62 @@ func (h *AdminHandler) UpdateUserFeishu(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "飞书绑定更新成功",
+		"data":    user,
+	})
+}
+
+// UpdateUserRoleRequest 更新用户角色请求
+type UpdateUserRoleRequest struct {
+	RoleID *uint `json:"role_id"` // nil 表示清除角色
+}
+
+// UpdateUserRole 设置用户角色（仅超管）
+func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
+	currentUser, err := getCurrentUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "未登录"})
+		return
+	}
+	if !currentUser.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "权限不足"})
+		return
+	}
+
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户ID"})
+		return
+	}
+
+	var req UpdateUserRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": SafeErrorMessage(err, "参数错误")})
+		return
+	}
+
+	if req.RoleID != nil {
+		var role models.Role
+		if err := database.DB.First(&role, *req.RoleID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "角色不存在"})
+			return
+		}
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, uint(userID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
+		return
+	}
+
+	if err := database.DB.Model(&user).Update("role_id", req.RoleID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": SafeErrorMessage(err, "更新失败")})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "角色更新成功",
 		"data":    user,
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"finance/adminauth"
 	"finance/api"
 	"finance/config"
 	_ "finance/docs"
@@ -52,9 +53,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		admin.POST("/password/request-reset", passwordResetHandler.RequestPasswordReset)
 		admin.POST("/password/reset", passwordResetHandler.ResetPassword)
 
-		// 需要 Cookie 认证的后台接口
+		// 需要 Cookie 认证的后台接口（认证 + 角色权限）
 		adminAuth := admin.Group("")
-		adminAuth.Use(AdminAuthMiddleware())
+		adminAuth.Use(AdminAuthMiddleware(), middleware.AdminPermissionMiddleware())
 		{
 			adminAuth.GET("/feishu/bind-token", feishuAuthHandler.GetFeishuBindToken)
 			adminAuth.GET("/current-user", adminHandler.GetCurrentUserInfo)
@@ -83,6 +84,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.PUT("/users/:id/admin", adminHandler.SetAdmin)
 			adminAuth.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
 			adminAuth.PUT("/users/:id/feishu", adminHandler.UpdateUserFeishu)
+			adminAuth.PUT("/users/:id/role", adminHandler.UpdateUserRole)
 			adminAuth.POST("/users/impersonate", adminHandler.ImpersonateUser)
 			adminAuth.POST("/users/exit-impersonation", adminHandler.ExitImpersonation)
 			adminAuth.GET("/statistics", adminHandler.GetStatistics)
@@ -119,6 +121,30 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			adminAuth.POST("/ai-chat", aiChatHandler.ChatStream)
 			adminAuth.GET("/ai-chat/history", aiChatHandler.ChatHistory)
 			adminAuth.DELETE("/ai-chat/history/:id", aiChatHandler.DeleteChatHistory)
+
+			// 角色管理
+			roleHandler := api.NewRoleHandler()
+			adminAuth.GET("/roles", roleHandler.List)
+			adminAuth.GET("/roles/:id", roleHandler.Get)
+			adminAuth.POST("/roles", roleHandler.Create)
+			adminAuth.PUT("/roles/:id", roleHandler.Update)
+			adminAuth.DELETE("/roles/:id", roleHandler.Delete)
+			adminAuth.PUT("/roles/:id/menus", roleHandler.AssignMenus)
+
+			// 菜单管理
+			menuHandler := api.NewMenuHandler()
+			adminAuth.GET("/menus", menuHandler.List)
+			adminAuth.POST("/menus", menuHandler.Create)
+			adminAuth.PUT("/menus/:id", menuHandler.Update)
+			adminAuth.DELETE("/menus/:id", menuHandler.Delete)
+			adminAuth.PUT("/menus/:id/apis", menuHandler.AssignAPIs)
+
+			// 接口权限管理
+			apiPermHandler := api.NewAPIPermissionHandler()
+			adminAuth.GET("/apis", apiPermHandler.List)
+			adminAuth.POST("/apis", apiPermHandler.Create)
+			adminAuth.PUT("/apis/:id", apiPermHandler.Update)
+			adminAuth.DELETE("/apis/:id", apiPermHandler.Delete)
 		}
 	}
 
@@ -241,7 +267,7 @@ func CORSMiddleware() gin.HandlerFunc {
 // AdminAuthMiddleware 后台管理 Cookie 认证中间件（验证签名，防止 Cookie 篡改越权）
 func AdminAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		_, err := api.GetVerifiedAdminUserID(c)
+		_, err := adminauth.GetVerifiedAdminUserID(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,

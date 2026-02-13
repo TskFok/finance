@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"finance/adminauth"
 	"finance/config"
 
 	"github.com/gin-gonic/gin"
@@ -25,15 +26,15 @@ func TestSignCookieValue(t *testing.T) {
 	defer func() { config.GlobalConfig = nil }()
 
 	// 相同输入得到相同签名
-	signed1 := signCookieValue("123")
-	signed2 := signCookieValue("123")
+	signed1 := adminauth.SignCookieValue("123")
+	signed2 := adminauth.SignCookieValue("123")
 	assert.Equal(t, signed1, signed2)
 	assert.Contains(t, signed1, ".")
 	assert.Equal(t, "123", signed1[:3])
 
 	// 空 secret 使用默认值
 	initCookieTestConfig("debug", "")
-	signed := signCookieValue("abc")
+	signed := adminauth.SignCookieValue("abc")
 	assert.NotEmpty(t, signed)
 	assert.Contains(t, signed, ".")
 	assert.True(t, len(signed) > len("abc")+1)
@@ -44,28 +45,28 @@ func TestVerifyCookieValue(t *testing.T) {
 	defer func() { config.GlobalConfig = nil }()
 
 	// 合法签名返回 value
-	signed := signCookieValue("user123")
-	value, err := verifyCookieValue(signed)
+	signed := adminauth.SignCookieValue("user123")
+	value, err := adminauth.VerifyCookieValue(signed)
 	require.NoError(t, err)
 	assert.Equal(t, "user123", value)
 
 	// 空值返回错误
-	_, err = verifyCookieValue("")
+	_, err = adminauth.VerifyCookieValue("")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
 
 	// 格式错误（无点号）返回错误
-	_, err = verifyCookieValue("novalue")
+	_, err = adminauth.VerifyCookieValue("novalue")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid")
 
 	// 格式错误（点号在开头）返回错误
-	_, err = verifyCookieValue(".sigonly")
+	_, err = adminauth.VerifyCookieValue(".sigonly")
 	assert.Error(t, err)
 
 	// 篡改 value 后签名无效
 	tampered := "hacker.0000000000000000000000000000000000000000000000000000000000000000"
-	_, err = verifyCookieValue(tampered)
+	_, err = adminauth.VerifyCookieValue(tampered)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "signature")
 }
@@ -111,7 +112,7 @@ func TestGetVerifiedAdminUserID(t *testing.T) {
 	router := gin.New()
 
 	// 正常 Cookie
-	signed := signCookieValue("42")
+	signed := adminauth.SignCookieValue("42")
 	router.GET("/ok", func(c *gin.Context) {
 		c.SetCookie("admin_user_id", signed, 86400, "/", "", false, true)
 		c.String(200, "ok")
@@ -176,7 +177,7 @@ func TestGetVerifiedOriginalAdminID(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	signed := signCookieValue("100")
+	signed := adminauth.SignCookieValue("100")
 	router.GET("/set", func(c *gin.Context) {
 		c.SetCookie("original_admin_id", signed, 86400, "/", "", false, true)
 		c.String(200, "ok")

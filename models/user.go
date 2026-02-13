@@ -19,7 +19,8 @@ type User struct {
 	Username     string         `json:"username" gorm:"uniqueIndex;size:50;not null"`
 	Password     string         `json:"-" gorm:"size:255;not null"`
 	Email        string         `json:"email" gorm:"size:100"`
-	IsAdmin      bool           `json:"is_admin" gorm:"default:false;index"`        // 是否为管理员
+	IsAdmin      bool           `json:"is_admin" gorm:"default:false;index"`        // 超级管理员，bypass 角色权限校验
+	RoleID       *uint          `json:"role_id" gorm:"index"`                      // 角色ID，空则沿用 is_admin 逻辑
 	Status       string         `json:"status" gorm:"size:20;default:locked;index"` // 用户状态：locked/active
 	FeishuOpenID  *string `json:"feishu_open_id,omitempty" gorm:"size:64;uniqueIndex"` // 飞书 open_id，NULL 表示未绑定
 	FeishuUnionID string  `json:"-" gorm:"size:64;index;default:''"`                   // 飞书 union_id

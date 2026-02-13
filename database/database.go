@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"finance/config"
 	"finance/models"
@@ -11,6 +12,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func splitMethodPath(s string) (method, path string) {
+	idx := strings.Index(s, ":")
+	if idx <= 0 || idx >= len(s)-1 {
+		return "", ""
+	}
+	return s[:idx], s[idx+1:]
+}
 
 var DB *gorm.DB
 
@@ -57,6 +66,11 @@ func Init(cfg *config.Config) error {
 		&models.AIModel{},
 		&models.AIChatMessage{},
 		&models.AIAnalysisHistory{},
+		&models.Role{},
+		&models.Menu{},
+		&models.APIPermission{},
+		&models.RoleMenu{},
+		&models.MenuAPI{},
 	); err != nil {
 		return err
 	}
@@ -140,6 +154,9 @@ func Init(cfg *config.Config) error {
 		}
 	}
 
+	// 初始化角色、菜单、接口权限及关联（仅当表为空时）
+	initRoleMenuAPI()
+
 	log.Println("数据库初始化成功")
 	return nil
 }
@@ -147,4 +164,182 @@ func Init(cfg *config.Config) error {
 // GetDB 获取数据库连接
 func GetDB() *gorm.DB {
 	return DB
+}
+
+// initRoleMenuAPI 初始化默认角色、菜单、接口权限及关联
+func initRoleMenuAPI() {
+	var roleCount int64
+	DB.Model(&models.Role{}).Count(&roleCount)
+	if roleCount > 0 {
+		return
+	}
+
+	// 默认角色
+	roles := []models.Role{
+		{Name: "超级管理员", Code: "admin", Description: "拥有所有权限"},
+		{Name: "运营员", Code: "operator", Description: "可管理数据，不含用户和系统配置"},
+		{Name: "查看者", Code: "viewer", Description: "仅可查看数据"},
+	}
+	if err := DB.Create(&roles).Error; err != nil {
+		log.Printf("初始化角色失败: %v", err)
+		return
+	}
+
+	// 默认菜单（与现有侧栏对应）
+	menus := []models.Menu{
+		{ParentID: 0, Name: "数据概览", Path: "dashboard", Icon: "fa-chart-pie", SortOrder: 10},
+		{ParentID: 0, Name: "账单管理", Path: "expenses", Icon: "fa-receipt", SortOrder: 20},
+		{ParentID: 0, Name: "账单统计", Path: "statistics", Icon: "fa-chart-column", SortOrder: 30},
+		{ParentID: 0, Name: "用户管理", Path: "users", Icon: "fa-users", SortOrder: 40},
+		{ParentID: 0, Name: "消费类别", Path: "categories", Icon: "fa-layer-group", SortOrder: 50},
+		{ParentID: 0, Name: "收入类别", Path: "income-categories", Icon: "fa-tags", SortOrder: 60},
+		{ParentID: 0, Name: "数据导出", Path: "export", Icon: "fa-file-export", SortOrder: 70},
+		{ParentID: 0, Name: "收入", Path: "incomes", Icon: "fa-arrow-trend-up", SortOrder: 80},
+		{ParentID: 0, Name: "AI模型", Path: "ai-models", Icon: "fa-cubes", SortOrder: 90},
+		{ParentID: 0, Name: "AI分析", Path: "ai-analysis", Icon: "fa-brain", SortOrder: 100},
+		{ParentID: 0, Name: "AI聊天", Path: "ai-chat", Icon: "fa-comments", SortOrder: 110},
+		{ParentID: 0, Name: "角色管理", Path: "roles", Icon: "fa-user-shield", SortOrder: 115},
+		{ParentID: 0, Name: "菜单管理", Path: "menus", Icon: "fa-list", SortOrder: 120},
+		{ParentID: 0, Name: "接口管理", Path: "apis", Icon: "fa-plug", SortOrder: 130},
+	}
+	if err := DB.Create(&menus).Error; err != nil {
+		log.Printf("初始化菜单失败: %v", err)
+		return
+	}
+
+	// 默认接口权限（从 router 提取的 admin 路由）
+	apis := []models.APIPermission{
+		{Method: "GET", Path: "/admin/current-user", Desc: "当前用户信息"},
+		{Method: "GET", Path: "/admin/feishu/bind-token", Desc: "飞书绑定Token"},
+		{Method: "GET", Path: "/admin/expenses", Desc: "消费记录列表"},
+		{Method: "POST", Path: "/admin/expenses", Desc: "创建消费记录"},
+		{Method: "PUT", Path: "/admin/expenses/:id", Desc: "更新消费记录"},
+		{Method: "DELETE", Path: "/admin/expenses/:id", Desc: "删除消费记录"},
+		{Method: "GET", Path: "/admin/expenses/detailed-statistics", Desc: "消费详细统计"},
+		{Method: "GET", Path: "/admin/statistics/summary", Desc: "收支汇总"},
+		{Method: "GET", Path: "/admin/categories", Desc: "消费类别列表"},
+		{Method: "POST", Path: "/admin/categories", Desc: "创建消费类别"},
+		{Method: "PUT", Path: "/admin/categories/:id", Desc: "更新消费类别"},
+		{Method: "DELETE", Path: "/admin/categories/:id", Desc: "删除消费类别"},
+		{Method: "GET", Path: "/admin/income-categories", Desc: "收入类别列表"},
+		{Method: "POST", Path: "/admin/income-categories", Desc: "创建收入类别"},
+		{Method: "PUT", Path: "/admin/income-categories/:id", Desc: "更新收入类别"},
+		{Method: "DELETE", Path: "/admin/income-categories/:id", Desc: "删除收入类别"},
+		{Method: "GET", Path: "/admin/users", Desc: "用户列表"},
+		{Method: "POST", Path: "/admin/users/email/send-code", Desc: "发送绑定邮箱验证码"},
+		{Method: "PUT", Path: "/admin/users/:id/password", Desc: "更新用户密码"},
+		{Method: "PUT", Path: "/admin/users/:id/email", Desc: "更新用户邮箱"},
+		{Method: "DELETE", Path: "/admin/users/:id", Desc: "删除用户"},
+		{Method: "PUT", Path: "/admin/users/:id/admin", Desc: "设置管理员"},
+		{Method: "PUT", Path: "/admin/users/:id/status", Desc: "更新用户状态"},
+		{Method: "PUT", Path: "/admin/users/:id/feishu", Desc: "更新飞书绑定"},
+		{Method: "POST", Path: "/admin/users/impersonate", Desc: "模拟登录"},
+		{Method: "POST", Path: "/admin/users/exit-impersonation", Desc: "退出模拟"},
+		{Method: "GET", Path: "/admin/statistics", Desc: "统计数据"},
+		{Method: "GET", Path: "/admin/incomes", Desc: "收入列表"},
+		{Method: "POST", Path: "/admin/incomes", Desc: "创建收入"},
+		{Method: "PUT", Path: "/admin/incomes/:id", Desc: "更新收入"},
+		{Method: "DELETE", Path: "/admin/incomes/:id", Desc: "删除收入"},
+		{Method: "GET", Path: "/admin/export/excel", Desc: "导出Excel"},
+		{Method: "POST", Path: "/admin/password/admin-reset", Desc: "管理员重置密码"},
+		{Method: "POST", Path: "/admin/password/send-reset-email", Desc: "发送重置邮件"},
+		{Method: "GET", Path: "/admin/email-config", Desc: "邮件配置"},
+		{Method: "GET", Path: "/admin/ai-models", Desc: "AI模型列表"},
+		{Method: "PUT", Path: "/admin/ai-models/reorder", Desc: "AI模型排序"},
+		{Method: "GET", Path: "/admin/ai-models/:id", Desc: "AI模型详情"},
+		{Method: "POST", Path: "/admin/ai-models", Desc: "创建AI模型"},
+		{Method: "POST", Path: "/admin/ai-models/:id/test", Desc: "测试AI模型"},
+		{Method: "PUT", Path: "/admin/ai-models/:id", Desc: "更新AI模型"},
+		{Method: "DELETE", Path: "/admin/ai-models/:id", Desc: "删除AI模型"},
+		{Method: "POST", Path: "/admin/ai-analysis", Desc: "AI分析"},
+		{Method: "GET", Path: "/admin/ai-analysis/history", Desc: "AI分析历史"},
+		{Method: "DELETE", Path: "/admin/ai-analysis/history/:id", Desc: "删除AI分析历史"},
+		{Method: "POST", Path: "/admin/ai-chat", Desc: "AI聊天"},
+		{Method: "GET", Path: "/admin/ai-chat/history", Desc: "AI聊天历史"},
+		{Method: "DELETE", Path: "/admin/ai-chat/history/:id", Desc: "删除AI聊天历史"},
+		{Method: "GET", Path: "/admin/roles", Desc: "角色列表"},
+		{Method: "GET", Path: "/admin/roles/:id", Desc: "角色详情"},
+		{Method: "POST", Path: "/admin/roles", Desc: "创建角色"},
+		{Method: "PUT", Path: "/admin/roles/:id", Desc: "更新角色"},
+		{Method: "DELETE", Path: "/admin/roles/:id", Desc: "删除角色"},
+		{Method: "PUT", Path: "/admin/roles/:id/menus", Desc: "分配角色菜单"},
+		{Method: "GET", Path: "/admin/menus", Desc: "菜单列表"},
+		{Method: "POST", Path: "/admin/menus", Desc: "创建菜单"},
+		{Method: "PUT", Path: "/admin/menus/:id", Desc: "更新菜单"},
+		{Method: "DELETE", Path: "/admin/menus/:id", Desc: "删除菜单"},
+		{Method: "PUT", Path: "/admin/menus/:id/apis", Desc: "绑定菜单接口"},
+		{Method: "GET", Path: "/admin/apis", Desc: "接口列表"},
+		{Method: "POST", Path: "/admin/apis", Desc: "创建接口"},
+		{Method: "PUT", Path: "/admin/apis/:id", Desc: "更新接口"},
+		{Method: "DELETE", Path: "/admin/apis/:id", Desc: "删除接口"},
+		{Method: "PUT", Path: "/admin/users/:id/role", Desc: "设置用户角色"},
+	}
+	if err := DB.Create(&apis).Error; err != nil {
+		log.Printf("初始化接口权限失败: %v", err)
+		return
+	}
+
+	// 菜单与接口绑定（按功能模块，通过 method+path 查询 api_id）
+	menuPathToPaths := map[string][]string{
+		"dashboard":  {"GET:/admin/current-user", "GET:/admin/statistics/summary", "GET:/admin/statistics"},
+		"expenses":   {"GET:/admin/expenses", "POST:/admin/expenses", "PUT:/admin/expenses/:id", "DELETE:/admin/expenses/:id", "GET:/admin/expenses/detailed-statistics"},
+		"statistics": {"GET:/admin/statistics/summary", "GET:/admin/statistics"},
+		"users":      {"GET:/admin/users", "POST:/admin/users/email/send-code", "PUT:/admin/users/:id/password", "PUT:/admin/users/:id/email", "DELETE:/admin/users/:id", "PUT:/admin/users/:id/admin", "PUT:/admin/users/:id/status", "PUT:/admin/users/:id/feishu", "POST:/admin/users/impersonate", "POST:/admin/users/exit-impersonation", "PUT:/admin/users/:id/role"},
+		"categories": {"GET:/admin/categories", "POST:/admin/categories", "PUT:/admin/categories/:id", "DELETE:/admin/categories/:id"},
+		"income-categories": {"GET:/admin/income-categories", "POST:/admin/income-categories", "PUT:/admin/income-categories/:id", "DELETE:/admin/income-categories/:id"},
+		"export":    {"GET:/admin/export/excel"},
+		"incomes":   {"GET:/admin/incomes", "POST:/admin/incomes", "PUT:/admin/incomes/:id", "DELETE:/admin/incomes/:id"},
+		"ai-models": {"GET:/admin/ai-models", "PUT:/admin/ai-models/reorder", "GET:/admin/ai-models/:id", "POST:/admin/ai-models", "POST:/admin/ai-models/:id/test", "PUT:/admin/ai-models/:id", "DELETE:/admin/ai-models/:id"},
+		"ai-analysis": {"POST:/admin/ai-analysis", "GET:/admin/ai-analysis/history", "DELETE:/admin/ai-analysis/history/:id"},
+		"ai-chat":    {"POST:/admin/ai-chat", "GET:/admin/ai-chat/history", "DELETE:/admin/ai-chat/history/:id"},
+		"roles":      {"GET:/admin/roles", "GET:/admin/roles/:id", "POST:/admin/roles", "PUT:/admin/roles/:id", "DELETE:/admin/roles/:id", "PUT:/admin/roles/:id/menus"},
+		"menus":      {"GET:/admin/menus", "POST:/admin/menus", "PUT:/admin/menus/:id", "DELETE:/admin/menus/:id", "PUT:/admin/menus/:id/apis"},
+		"apis":       {"GET:/admin/apis", "POST:/admin/apis", "PUT:/admin/apis/:id", "DELETE:/admin/apis/:id"},
+	}
+	for i, m := range menus {
+		menuID := uint(i + 1)
+		paths, ok := menuPathToPaths[m.Path]
+		if !ok {
+			continue
+		}
+		for _, s := range paths {
+			method, path := splitMethodPath(s)
+			if method == "" || path == "" {
+				continue
+			}
+			var api models.APIPermission
+			if err := DB.Where("method = ? AND path = ?", method, path).First(&api).Error; err == nil {
+				_ = DB.Create(&models.MenuAPI{MenuID: menuID, APIID: api.ID}).Error
+			}
+		}
+	}
+
+	// 超级管理员角色关联所有菜单
+	adminRoleID := uint(1)
+	for i := 1; i <= len(menus); i++ {
+		_ = DB.Create(&models.RoleMenu{RoleID: adminRoleID, MenuID: uint(i)}).Error
+	}
+
+	// 运营员：除角色/菜单/接口管理外的所有菜单
+	operatorPaths := map[string]bool{
+		"dashboard": true, "expenses": true, "statistics": true, "users": true,
+		"categories": true, "income-categories": true, "export": true, "incomes": true,
+		"ai-models": true, "ai-analysis": true, "ai-chat": true,
+	}
+	for _, m := range menus {
+		if operatorPaths[m.Path] {
+			_ = DB.Create(&models.RoleMenu{RoleID: 2, MenuID: m.ID}).Error
+		}
+	}
+
+	// 查看者：仅数据查看相关
+	viewerPaths := map[string]bool{
+		"dashboard": true, "expenses": true, "statistics": true, "incomes": true,
+		"export": true, "ai-analysis": true, "ai-chat": true,
+	}
+	for _, m := range menus {
+		if viewerPaths[m.Path] {
+			_ = DB.Create(&models.RoleMenu{RoleID: 3, MenuID: m.ID}).Error
+		}
+	}
 }
