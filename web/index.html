@@ -839,21 +839,32 @@
                 <div class="page-header"><div><h1 class="page-title">角色管理</h1><p class="page-subtitle">管理角色及菜单权限分配</p></div></div>
                 <div class="filter-bar">
                     <div class="filter-row">
-                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;"><label>名称/编码</label><input type="text" id="roleSearchKeyword" placeholder="搜索名称或编码" oninput="renderRolesTable()"></div>
+                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;"><label>名称/编码</label><input type="text" id="roleSearchKeyword" placeholder="搜索名称或编码" oninput="rolePage=1;renderRolesTable()"></div>
                         <div class="filter-actions"><button class="btn btn-primary" onclick="loadRoles()">查询</button><button class="btn btn-success" onclick="openRoleModal()">添加角色</button><button class="btn btn-secondary" onclick="resetRoleSearch()">重置</button></div>
                     </div>
                 </div>
-                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>名称</th><th>编码</th><th>描述</th><th>菜单数</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="rolesTable"></tbody></table></div>
+                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>名称</th><th>编码</th><th>描述</th><th>菜单数</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="rolesTable"></tbody></table><div class="pagination"><div class="pagination-info" id="rolePaginationInfo">共 0 条记录</div><div class="pagination-buttons" id="rolePaginationButtons"></div></div></div>
             </div>
             <div class="page-content" id="page-menus">
                 <div class="page-header"><div><h1 class="page-title">菜单管理</h1><p class="page-subtitle">配置菜单及接口绑定</p></div></div>
-                <div class="filter-bar"><div class="filter-row"><input type="text" id="menuSearchKeyword" placeholder="名称 / 路径" style="max-width:200px;" oninput="renderMenusTable()"><div class="filter-actions"><button class="btn btn-primary" onclick="loadMenus()">查询</button><button class="btn btn-success" onclick="openMenuModal()">添加菜单</button><button class="btn btn-secondary" onclick="resetMenuSearch()">重置</button></div></div></div>
-                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>名称</th><th>路径</th><th>父级</th><th>图标</th><th>排序</th><th>接口数</th><th>操作</th></tr></thead><tbody id="menusTable"></tbody></table></div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;"><label>名称/路径</label><input type="text" id="menuSearchKeyword" placeholder="搜索名称或路径" oninput="menuPage=1;renderMenusTable()"></div>
+                        <div class="filter-actions"><button class="btn btn-primary" onclick="loadMenus()">查询</button><button class="btn btn-success" onclick="openMenuModal()">添加菜单</button><button class="btn btn-secondary" onclick="resetMenuSearch()">重置</button></div>
+                    </div>
+                </div>
+                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>名称</th><th>路径</th><th>父级</th><th>图标</th><th>排序</th><th>接口数</th><th>操作</th></tr></thead><tbody id="menusTable"></tbody></table><div class="pagination"><div class="pagination-info" id="menuPaginationInfo">共 0 条记录</div><div class="pagination-buttons" id="menuPaginationButtons"></div></div></div>
             </div>
             <div class="page-content" id="page-apis">
                 <div class="page-header"><div><h1 class="page-title">接口管理</h1><p class="page-subtitle">维护系统接口权限定义</p></div></div>
-                <div class="filter-bar"><div class="filter-row"><input type="text" id="apiSearchMethod" placeholder="方法" style="max-width:100px;" oninput="renderAPIsTable()"><input type="text" id="apiSearchPath" placeholder="路径" style="max-width:200px;" oninput="renderAPIsTable()"><div class="filter-actions"><button class="btn btn-primary" onclick="loadAPIs()">查询</button><button class="btn btn-success" onclick="openAPIModal()">添加接口</button><button class="btn btn-secondary" onclick="resetAPISearch()">重置</button></div></div></div>
-                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>方法</th><th>路径</th><th>描述</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="apisTable"></tbody></table></div>
+                <div class="filter-bar">
+                    <div class="filter-row">
+                        <div class="filter-item" style="min-width: 120px; flex: 0 0 120px;"><label>方法</label><input type="text" id="apiSearchMethod" placeholder="如 GET" oninput="apiPage=1;renderAPIsTable()"></div>
+                        <div class="filter-item" style="min-width: 240px; flex: 0 0 240px;"><label>路径</label><input type="text" id="apiSearchPath" placeholder="搜索路径" oninput="apiPage=1;renderAPIsTable()"></div>
+                        <div class="filter-actions"><button class="btn btn-primary" onclick="loadAPIs()">查询</button><button class="btn btn-success" onclick="openAPIModal()">添加接口</button><button class="btn btn-secondary" onclick="resetAPISearch()">重置</button></div>
+                    </div>
+                </div>
+                <div class="data-table-container"><table class="data-table"><thead><tr><th>ID</th><th>方法</th><th>路径</th><th>描述</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="apisTable"></tbody></table><div class="pagination"><div class="pagination-info" id="apiPaginationInfo">共 0 条记录</div><div class="pagination-buttons" id="apiPaginationButtons"></div></div></div>
             </div>
             <div class="page-content" id="page-ai-chat">
                 <div class="page-header">
@@ -2670,13 +2681,15 @@
         let assigningMenusRoleId = null, assigningAPIsMenuId = null;
 
         function loadRoles() { renderRolesPage(); }
-        function resetRoleSearch() { const inp = document.getElementById('roleSearchKeyword'); if (inp) inp.value = ''; renderRolesTable(); }
+        let rolePage = 1, rolePageSize = 15, roleTotalPages = 1;
+        function resetRoleSearch() { const inp = document.getElementById('roleSearchKeyword'); if (inp) inp.value = ''; rolePage = 1; renderRolesTable(); }
         async function renderRolesPage() {
             try {
                 const res = await fetch('/admin/roles');
                 const data = await res.json();
                 if (data.success) { allRoles = data.data || []; } else { allRoles = []; }
             } catch (e) { allRoles = []; }
+            rolePage = 1;
             renderRolesTable();
         }
         function renderRolesTable() {
@@ -2687,15 +2700,28 @@
                 if (!kw) return true;
                 return ((r.name || '').toLowerCase().includes(kw)) || ((r.code || '').toLowerCase().includes(kw));
             });
-            if (!list.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">${kw ? '未找到匹配的角色' : '暂无角色'}</td></tr>`; return; }
-            tbody.innerHTML = list.map(r => {
+            const total = list.length;
+            roleTotalPages = Math.max(1, Math.ceil(total / rolePageSize));
+            if (rolePage > roleTotalPages) rolePage = roleTotalPages;
+            const start = (rolePage - 1) * rolePageSize;
+            const pageList = list.slice(start, start + rolePageSize);
+            if (!pageList.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px;">${kw ? '未找到匹配的角色' : '暂无角色'}</td></tr>`; document.getElementById('rolePaginationInfo').textContent = '共 0 条记录'; document.getElementById('rolePaginationButtons').innerHTML = ''; return; }
+            tbody.innerHTML = pageList.map(r => {
                 const menuCnt = (r.menu_ids || []).length;
                 return `<tr><td>${r.id}</td><td>${r.name || ''}</td><td><code>${r.code || ''}</code></td><td>${r.description || '-'}</td><td>${menuCnt}</td><td>${formatDateTime(r.created_at) || '-'}</td>
                 <td><button class="btn btn-primary btn-sm" onclick="openEditRoleModal(${r.id})">编辑</button>
                 <button class="btn btn-info btn-sm" onclick="openRoleMenusModal(${r.id})">分配菜单</button>
                 <button class="btn btn-danger btn-sm" onclick="openDeleteRoleModal(${r.id})">删除</button></td></tr>`;
             }).join('');
+            document.getElementById('rolePaginationInfo').textContent = `共 ${total} 条记录，第 ${rolePage} / ${roleTotalPages} 页`;
+            const rb = document.getElementById('rolePaginationButtons');
+            let rbHtml = `<button class="page-btn" onclick="goToRolePage(${rolePage - 1})" ${rolePage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= roleTotalPages && i <= 5; i++) rbHtml += `<button class="page-btn ${rolePage === i ? 'active' : ''}" onclick="goToRolePage(${i})">${i}</button>`;
+            if (roleTotalPages > 5) rbHtml += `<span style="padding: 8px;">...</span><button class="page-btn ${rolePage === roleTotalPages ? 'active' : ''}" onclick="goToRolePage(${roleTotalPages})">${roleTotalPages}</button>`;
+            rbHtml += `<button class="page-btn" onclick="goToRolePage(${rolePage + 1})" ${rolePage >= roleTotalPages ? 'disabled' : ''}>下一页</button>`;
+            rb.innerHTML = rbHtml;
         }
+        function goToRolePage(page) { if (page < 1 || page > roleTotalPages) return; rolePage = page; renderRolesTable(); }
 
         function openRoleModal() { editingRoleId = null; document.getElementById('roleModalTitle').textContent = '添加角色'; document.getElementById('roleForm').reset(); document.getElementById('roleModal').classList.add('show'); }
         function openEditRoleModal(id) {
@@ -2749,7 +2775,8 @@
         }
 
         function loadMenus() { renderMenusPage(); }
-        function resetMenuSearch() { const inp = document.getElementById('menuSearchKeyword'); if (inp) inp.value = ''; renderMenusTable(); }
+        let menuPage = 1, menuPageSize = 15, menuTotalPages = 1;
+        function resetMenuSearch() { const inp = document.getElementById('menuSearchKeyword'); if (inp) inp.value = ''; menuPage = 1; renderMenusTable(); }
         async function renderMenusPage() {
             try {
                 const res = await fetch('/admin/menus');
@@ -2759,6 +2786,7 @@
                     allMenus = []; flatten(data.data || [], allMenus);
                 } else allMenus = [];
             } catch (e) { allMenus = []; }
+            menuPage = 1;
             renderMenusTable();
         }
         function renderMenusTable() {
@@ -2769,11 +2797,16 @@
                 if (!kw) return true;
                 return ((m.name || '').toLowerCase().includes(kw)) || ((m.path || '').toLowerCase().includes(kw));
             });
-            if (!list.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:40px;">${kw ? '未找到匹配的菜单' : '暂无菜单'}</td></tr>`; return; }
+            const total = list.length;
+            menuTotalPages = Math.max(1, Math.ceil(total / menuPageSize));
+            if (menuPage > menuTotalPages) menuPage = menuTotalPages;
+            const start = (menuPage - 1) * menuPageSize;
+            const pageList = list.slice(start, start + menuPageSize);
+            if (!pageList.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:40px;">${kw ? '未找到匹配的菜单' : '暂无菜单'}</td></tr>`; document.getElementById('menuPaginationInfo').textContent = '共 0 条记录'; document.getElementById('menuPaginationButtons').innerHTML = ''; return; }
             const flatAll = allMenus || [];
             const parentById = flatAll.reduce((a, m) => { a[m.id] = flatAll.find(p => p.id === m.parent_id); return a; }, {});
             const parentName = (m) => { const p = parentById[m.id] || flatAll.find(x => x.id === m.parent_id); return p ? p.name : '-'; };
-            tbody.innerHTML = list.map(m => {
+            tbody.innerHTML = pageList.map(m => {
                 const depth = m._depth || 0;
                 const apiCnt = (m.apis || []).length;
                 const pname = (m.parent_id && m.parent_id > 0) ? parentName(m) : '-';
@@ -2782,7 +2815,15 @@
                 <button class="btn btn-info btn-sm" onclick="openMenuAPIsModal(${m.id})">绑定接口</button>
                 <button class="btn btn-danger btn-sm" onclick="openDeleteMenuModal(${m.id})">删除</button></td></tr>`;
             }).join('');
+            document.getElementById('menuPaginationInfo').textContent = `共 ${total} 条记录，第 ${menuPage} / ${menuTotalPages} 页`;
+            const mb = document.getElementById('menuPaginationButtons');
+            let mbHtml = `<button class="page-btn" onclick="goToMenuPage(${menuPage - 1})" ${menuPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= menuTotalPages && i <= 5; i++) mbHtml += `<button class="page-btn ${menuPage === i ? 'active' : ''}" onclick="goToMenuPage(${i})">${i}</button>`;
+            if (menuTotalPages > 5) mbHtml += `<span style="padding: 8px;">...</span><button class="page-btn ${menuPage === menuTotalPages ? 'active' : ''}" onclick="goToMenuPage(${menuTotalPages})">${menuTotalPages}</button>`;
+            mbHtml += `<button class="page-btn" onclick="goToMenuPage(${menuPage + 1})" ${menuPage >= menuTotalPages ? 'disabled' : ''}>下一页</button>`;
+            mb.innerHTML = mbHtml;
         }
+        function goToMenuPage(page) { if (page < 1 || page > menuTotalPages) return; menuPage = page; renderMenusTable(); }
 
         function fillMenuParentOptions() {
             const sel = document.getElementById('menuParentId');
@@ -2849,13 +2890,15 @@
         }
 
         function loadAPIs() { renderAPIsPage(); }
-        function resetAPISearch() { const m = document.getElementById('apiSearchMethod'); const p = document.getElementById('apiSearchPath'); if (m) m.value = ''; if (p) p.value = ''; renderAPIsTable(); }
+        let apiPage = 1, apiPageSize = 15, apiTotalPages = 1;
+        function resetAPISearch() { const m = document.getElementById('apiSearchMethod'); const p = document.getElementById('apiSearchPath'); if (m) m.value = ''; if (p) p.value = ''; apiPage = 1; renderAPIsTable(); }
         async function renderAPIsPage() {
             try {
                 const res = await fetch('/admin/apis');
                 const data = await res.json();
                 if (data.success) allAPIs = data.data || []; else allAPIs = [];
             } catch (e) { allAPIs = []; }
+            apiPage = 1;
             renderAPIsTable();
         }
         function renderAPIsTable() {
@@ -2868,13 +2911,26 @@
                 if (pathKw && !(a.path || '').toLowerCase().includes(pathKw)) return false;
                 return true;
             });
-            if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">${(methodKw || pathKw) ? '未找到匹配的接口' : '暂无接口'}</td></tr>`; return; }
-            tbody.innerHTML = list.map(a => `
+            const total = list.length;
+            apiTotalPages = Math.max(1, Math.ceil(total / apiPageSize));
+            if (apiPage > apiTotalPages) apiPage = apiTotalPages;
+            const start = (apiPage - 1) * apiPageSize;
+            const pageList = list.slice(start, start + apiPageSize);
+            if (!pageList.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);padding:40px;">${(methodKw || pathKw) ? '未找到匹配的接口' : '暂无接口'}</td></tr>`; document.getElementById('apiPaginationInfo').textContent = '共 0 条记录'; document.getElementById('apiPaginationButtons').innerHTML = ''; return; }
+            tbody.innerHTML = pageList.map(a => `
                 <tr><td>${a.id}</td><td><code>${a.method || ''}</code></td><td><code>${a.path || ''}</code></td><td>${a.desc || '-'}</td><td>${formatDateTime(a.created_at) || '-'}</td>
                 <td><button class="btn btn-primary btn-sm" onclick="openEditAPIModal(${a.id})">编辑</button>
                 <button class="btn btn-danger btn-sm" onclick="openDeleteAPIModal(${a.id})">删除</button></td></tr>
             `).join('');
+            document.getElementById('apiPaginationInfo').textContent = `共 ${total} 条记录，第 ${apiPage} / ${apiTotalPages} 页`;
+            const ab = document.getElementById('apiPaginationButtons');
+            let abHtml = `<button class="page-btn" onclick="goToAPIPage(${apiPage - 1})" ${apiPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+            for (let i = 1; i <= apiTotalPages && i <= 5; i++) abHtml += `<button class="page-btn ${apiPage === i ? 'active' : ''}" onclick="goToAPIPage(${i})">${i}</button>`;
+            if (apiTotalPages > 5) abHtml += `<span style="padding: 8px;">...</span><button class="page-btn ${apiPage === apiTotalPages ? 'active' : ''}" onclick="goToAPIPage(${apiTotalPages})">${apiTotalPages}</button>`;
+            abHtml += `<button class="page-btn" onclick="goToAPIPage(${apiPage + 1})" ${apiPage >= apiTotalPages ? 'disabled' : ''}>下一页</button>`;
+            ab.innerHTML = abHtml;
         }
+        function goToAPIPage(page) { if (page < 1 || page > apiTotalPages) return; apiPage = page; renderAPIsTable(); }
 
         function openAPIModal() { editingAPIId = null; document.getElementById('apiModalTitle').textContent = '添加接口'; document.getElementById('apiForm').reset(); document.getElementById('apiModal').classList.add('show'); }
         function openEditAPIModal(id) {
