@@ -2,10 +2,47 @@ package config
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestLoadConfig_LogLevel(t *testing.T) {
+	// 清除可能影响测试的环境变量
+	orig := os.Getenv("FINANCE_LOG_LEVEL")
+	defer os.Setenv("FINANCE_LOG_LEVEL", orig)
+	os.Unsetenv("FINANCE_LOG_LEVEL")
+
+	cfg, err := LoadConfig("")
+	assert.NoError(t, err)
+	assert.NotNil(t, cfg)
+	// 默认配置中 log.level 为 info
+	assert.Equal(t, "info", cfg.Log.Level)
+}
+
+func TestLoadConfig_LogLevel_InvalidDefaultsToInfo(t *testing.T) {
+	orig := os.Getenv("FINANCE_LOG_LEVEL")
+	defer os.Setenv("FINANCE_LOG_LEVEL", orig)
+	os.Setenv("FINANCE_LOG_LEVEL", "invalid")
+
+	cfg, err := LoadConfig("")
+	assert.NoError(t, err)
+	assert.NotNil(t, cfg)
+	// 无效值应回退为 info
+	assert.Equal(t, "info", cfg.Log.Level)
+}
+
+func TestLoadConfig_LogLevel_ValidValues(t *testing.T) {
+	for _, level := range []string{"debug", "info", "warn", "error"} {
+		orig := os.Getenv("FINANCE_LOG_LEVEL")
+		os.Setenv("FINANCE_LOG_LEVEL", level)
+		cfg, err := LoadConfig("")
+		os.Setenv("FINANCE_LOG_LEVEL", orig)
+		assert.NoError(t, err)
+		assert.Equal(t, level, cfg.Log.Level, "level %s", level)
+	}
+}
 
 func TestSafeErrorMessage(t *testing.T) {
 	fallback := "操作失败"

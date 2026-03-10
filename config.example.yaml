@@ -1,6 +1,10 @@
 # 记账系统配置文件示例
 # 复制此文件为 config.yaml 并根据实际情况修改
 
+# 日志配置
+log:
+  level: "error"  # debug, info, warn, error（开发环境可设为 debug）
+
 # 服务器配置
 server:
   port: ":8811"                       # 服务端口，格式 :端口号

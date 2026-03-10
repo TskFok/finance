@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
 	"strings"
 
 	"finance/config"
 	"finance/database"
+	"finance/logger"
 	"finance/middleware"
 	"finance/router"
 )
@@ -49,6 +51,9 @@ func main() {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
+	// 根据配置初始化日志级别
+	logger.Init(cfg)
+
 	// 命令行参数覆盖端口配置
 	if port != "" {
 		// 自动添加冒号前缀
@@ -56,7 +61,7 @@ func main() {
 			port = ":" + port
 		}
 		cfg.Server.Port = port
-		log.Printf("命令行指定端口: %s", port)
+		slog.Info("命令行指定端口", "port", port)
 	}
 
 	// 打印配置信息
@@ -74,13 +79,13 @@ func main() {
 	r := router.SetupRouter(cfg)
 
 	// 启动服务器
-	log.Printf("==========================================")
-	log.Printf("  💰 记账系统已启动")
-	log.Printf("==========================================")
-	log.Printf("  后台管理: http://localhost%s/", cfg.Server.Port)
-	log.Printf("  Swagger:  http://localhost%s/swagger/index.html", cfg.Server.Port)
-	log.Printf("  API接口:  http://localhost%s/api/v1/", cfg.Server.Port)
-	log.Printf("==========================================")
+	slog.Info("==========================================")
+	slog.Info("  💰 记账系统已启动")
+	slog.Info("==========================================")
+	slog.Info("  后台管理", "url", "http://localhost"+cfg.Server.Port+"/")
+	slog.Info("  Swagger", "url", "http://localhost"+cfg.Server.Port+"/swagger/index.html")
+	slog.Info("  API接口", "url", "http://localhost"+cfg.Server.Port+"/api/v1/")
+	slog.Info("==========================================")
 
 	if err := r.Run(cfg.Server.Port); err != nil {
 		log.Fatalf("服务器启动失败: %v", err)

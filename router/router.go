@@ -22,7 +22,13 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// 设置运行模式
 	gin.SetMode(cfg.Server.Mode)
 
-	r := gin.Default()
+	// gin.Default() 会添加 Logger 中间件，始终输出请求日志。
+	// 仅在 debug/info 时添加请求日志，warn/error 时不输出请求路径
+	r := gin.New()
+	r.Use(gin.Recovery())
+	if cfg.Log.Level == "debug" || cfg.Log.Level == "info" {
+		r.Use(gin.Logger())
+	}
 
 	// CORS 中间件
 	r.Use(CORSMiddleware())

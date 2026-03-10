@@ -2,15 +2,16 @@ package database
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"finance/config"
+	"finance/logger"
 	"finance/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 func splitMethodPath(s string) (method, path string) {
@@ -37,7 +38,7 @@ func Init(cfg *config.Config) error {
 
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: gormlogger.Default.LogMode(logger.GORMLogLevel(cfg)),
 		DisableForeignKeyConstraintWhenMigrating: true, // 禁止迁移时创建外键
 	})
 	if err != nil {
@@ -157,7 +158,7 @@ func Init(cfg *config.Config) error {
 	// 初始化角色、菜单、接口权限及关联（仅当表为空时）
 	initRoleMenuAPI()
 
-	log.Println("数据库初始化成功")
+	slog.Info("数据库初始化成功")
 	return nil
 }
 
@@ -181,7 +182,7 @@ func initRoleMenuAPI() {
 		{Name: "查看者", Code: "viewer", Description: "仅可查看数据"},
 	}
 	if err := DB.Create(&roles).Error; err != nil {
-		log.Printf("初始化角色失败: %v", err)
+		slog.Error("初始化角色失败", "err", err)
 		return
 	}
 
@@ -203,7 +204,7 @@ func initRoleMenuAPI() {
 		{ParentID: 0, Name: "接口管理", Path: "apis", Icon: "fa-plug", SortOrder: 130},
 	}
 	if err := DB.Create(&menus).Error; err != nil {
-		log.Printf("初始化菜单失败: %v", err)
+		slog.Error("初始化菜单失败", "err", err)
 		return
 	}
 
@@ -275,7 +276,7 @@ func initRoleMenuAPI() {
 		{Method: "PUT", Path: "/admin/users/:id/role", Desc: "设置用户角色"},
 	}
 	if err := DB.Create(&apis).Error; err != nil {
-		log.Printf("初始化接口权限失败: %v", err)
+		slog.Error("初始化接口权限失败", "err", err)
 		return
 	}
 

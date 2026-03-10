@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -16,7 +17,13 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Email    EmailConfig    `mapstructure:"email"`
-	Feishu   FeishuConfig  `mapstructure:"feishu"`
+	Feishu   FeishuConfig   `mapstructure:"feishu"`
+	Log      LogConfig      `mapstructure:"log"`
+}
+
+// LogConfig 日志配置
+type LogConfig struct {
+	Level string `mapstructure:"level"` // debug, info, warn, error
 }
 
 // FeishuConfig 飞书配置（扫码登录）
@@ -125,6 +132,17 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 	cfg.JWT.ExpireTime = time.Duration(cfg.JWT.ExpireHours) * time.Hour
 
+	// 设置默认日志级别并校验
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = "info"
+	}
+	switch cfg.Log.Level {
+	case "debug", "info", "warn", "error":
+		// 有效值
+	default:
+		cfg.Log.Level = "info"
+	}
+
 	// 保存到全局变量
 	GlobalConfig = &cfg
 
@@ -164,13 +182,11 @@ func PrintConfig() {
 	if GlobalConfig == nil {
 		return
 	}
-	log.Printf("当前配置:")
-	log.Printf("  服务器: %s (模式: %s)", GlobalConfig.Server.Port, GlobalConfig.Server.Mode)
-	log.Printf("  数据库: %s@%s:%s/%s",
-		GlobalConfig.Database.Username,
-		GlobalConfig.Database.Host,
-		GlobalConfig.Database.Port,
-		GlobalConfig.Database.DBName)
-	log.Printf("  邮件服务: %v", GlobalConfig.Email.Enabled)
-	log.Printf("  飞书扫码登录: %v", GlobalConfig.Feishu.Enabled)
+	slog.Info("当前配置",
+		"server", GlobalConfig.Server.Port,
+		"mode", GlobalConfig.Server.Mode,
+		"database", GlobalConfig.Database.Username+"@"+GlobalConfig.Database.Host+":"+GlobalConfig.Database.Port+"/"+GlobalConfig.Database.DBName,
+		"email_enabled", GlobalConfig.Email.Enabled,
+		"feishu_enabled", GlobalConfig.Feishu.Enabled,
+		"log_level", GlobalConfig.Log.Level)
 }

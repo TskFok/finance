@@ -385,6 +385,11 @@ val retrofit = Retrofit.Builder()
 | FINANCE_FEISHU_ENABLED | feishu.enabled | false |
 | FINANCE_FEISHU_APP_ID | feishu.app_id | (空) |
 | FINANCE_FEISHU_APP_SECRET | feishu.app_secret | (空) |
+| FINANCE_LOG_LEVEL | log.level | info |
+
+### 日志级别配置
+
+`log.level` 支持：`debug`、`info`、`warn`、`error`。`debug` 级别会输出 SQL 语句；生产环境建议使用 `info` 或 `warn`。
 
 ### 飞书扫码登录配置
 
