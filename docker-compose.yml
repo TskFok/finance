@@ -1,0 +1,68 @@
+# 本地或单机部署：应用 + MySQL。
+# 先复制 .env.example 为 .env 并填写密码与 JWT 密钥，再执行 make docker-up。
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${FINANCE_DATABASE_DBNAME:-finance}
+      MYSQL_USER: ${FINANCE_DATABASE_USERNAME:-finance}
+      MYSQL_PASSWORD: ${FINANCE_DATABASE_PASSWORD:?请在 .env 中设置 FINANCE_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中设置 MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  finance:
+    image: ${FINANCE_IMAGE:-finance:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8811}:8811"
+    environment:
+      TZ: Asia/Shanghai
+      FINANCE_LOG_LEVEL: ${FINANCE_LOG_LEVEL:-info}
+      FINANCE_SERVER_PORT: ${FINANCE_SERVER_PORT:-:8811}
+      FINANCE_SERVER_MODE: ${FINANCE_SERVER_MODE:-release}
+      FINANCE_SERVER_BASE_URL: ${FINANCE_SERVER_BASE_URL:-http://localhost:8811}
+      FINANCE_DATABASE_HOST: ${FINANCE_DATABASE_HOST:-mysql}
+      FINANCE_DATABASE_PORT: ${FINANCE_DATABASE_PORT:-3306}
+      FINANCE_DATABASE_USERNAME: ${FINANCE_DATABASE_USERNAME:-finance}
+      FINANCE_DATABASE_PASSWORD: ${FINANCE_DATABASE_PASSWORD:?请在 .env 中设置 FINANCE_DATABASE_PASSWORD}
+      FINANCE_DATABASE_DBNAME: ${FINANCE_DATABASE_DBNAME:-finance}
+      FINANCE_DATABASE_CHARSET: ${FINANCE_DATABASE_CHARSET:-utf8mb4}
+      FINANCE_JWT_SECRET: ${FINANCE_JWT_SECRET:?请在 .env 中设置 FINANCE_JWT_SECRET}
+      FINANCE_JWT_EXPIRE_HOURS: ${FINANCE_JWT_EXPIRE_HOURS:-24}
+      FINANCE_EMAIL_ENABLED: ${FINANCE_EMAIL_ENABLED:-false}
+      FINANCE_EMAIL_HOST: ${FINANCE_EMAIL_HOST:-smtp.qq.com}
+      FINANCE_EMAIL_PORT: ${FINANCE_EMAIL_PORT:-465}
+      FINANCE_EMAIL_USERNAME: ${FINANCE_EMAIL_USERNAME:-}
+      FINANCE_EMAIL_PASSWORD: ${FINANCE_EMAIL_PASSWORD:-}
+      FINANCE_EMAIL_FROM: ${FINANCE_EMAIL_FROM:-记账系统}
+      FINANCE_FEISHU_ENABLED: ${FINANCE_FEISHU_ENABLED:-false}
+      FINANCE_FEISHU_APP_ID: ${FINANCE_FEISHU_APP_ID:-}
+      FINANCE_FEISHU_APP_SECRET: ${FINANCE_FEISHU_APP_SECRET:-}
+      FINANCE_FEISHU_AUTO_CREATE_USER: ${FINANCE_FEISHU_AUTO_CREATE_USER:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1$$FINANCE_SERVER_PORT/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  mysql_data:

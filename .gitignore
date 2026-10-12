@@ -9,3 +9,4 @@ config/local.yaml
 config/*.local.yaml
 .env
 .env.*
+!.env.example
